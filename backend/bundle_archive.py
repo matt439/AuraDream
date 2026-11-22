@@ -24,6 +24,8 @@ from . import backup_receipts, bundle_crypto, bundle_leases, tiled_refine_contra
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BrowseUnavailable, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
 from .metadata import PNG_SIGNATURE, detailer_from_json, edit_from_json, tiled_refine_from_json
+from .controlnet_contract import ControlNetSpec
+from .spatial_conditioning import conditioning_from_json
 
 
 _FORMAT = "auradream-gallery"
@@ -215,7 +217,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     raise BundleError(f"{info.filename} is stored larger than its contents")
             manifest = json.loads(archive.read(_MANIFEST))
             if (not isinstance(manifest, dict) or manifest.get("format") not in {_FORMAT, *_LEGACY_FORMATS}
-                    or type(manifest.get("version")) is not int or manifest["version"] not in (1, 2, 3)):
+                    or type(manifest.get("version")) is not int or manifest["version"] not in (1, 2, 3, 4)):
                 raise BundleError("this is not a supported AuraDream bundle")
             if backup_receipts.MARKER in manifest or managed is not None:
                 try:
@@ -247,6 +249,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 needed_sources = set()
                 tiled_roots = set()
                 has_tiled_results = False
+                has_spatial_results = False
                 for row in found:
                     try:
                         edit = edit_from_json(row.get("edit"))
@@ -265,15 +268,27 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     except (TypeError, ValueError) as exc:
                         raise BundleError(f"invalid Tiled Refine metadata for {row['filename']}: {exc}") from exc
                     if tiled_refine is not None:
-                        if manifest["version"] != 3:
+                        if manifest["version"] < 3:
                             raise BundleError("Tiled Refine requires bundle version 3")
                         has_tiled_results = True
                         if tiled_refine.source is not None:
                             tiled_roots.add(tiled_refine.source)
+                    try:
+                        conditioning = conditioning_from_json(row.get("spatial_conditioning"))
+                    except (TypeError, ValueError) as exc:
+                        raise BundleError(f"invalid spatial conditioning metadata for {row['filename']}: {exc}") from exc
+                    if conditioning is not None:
+                        if manifest["version"] < 4:
+                            raise BundleError("Spatial conditioning requires bundle version 4")
+                        has_spatial_results = True
+                    if isinstance(conditioning, ControlNetSpec) and conditioning.source is not None:
+                        needed_sources.add(conditioning.source)
                     if "images/" + row["filename"] not in files:
                         raise BundleError(f"the bundle is missing {row['filename']}")
                 if manifest["version"] == 3 and not has_tiled_results:
                     raise BundleError("bundle version 3 is only supported for archives with Tiled Refine results")
+                if manifest["version"] == 4 and not has_spatial_results:
+                    raise BundleError("bundle version 4 is only supported for archives with spatial conditioning results")
                 # Private copies leave export's pre-cleanup snapshot unchanged.
                 return {"images/" + row["filename"]: {
                     **row, "_bundle_version": manifest["version"],

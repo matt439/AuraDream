@@ -75,6 +75,10 @@ async def swap_plan(
             text=(record.prompt if request.field == "prompt" else record.negative_prompt) or "",
         )
         results.append(result)
+        if record.imported_name is not None:
+            result.status = "invalid"
+            result.detail = "This imported source has no prompt to rewrite. Use Refine to write a prompt for it."
+            continue
         if record.edit is not None:
             result.status = "invalid"
             result.detail = "Swap tags cannot rewrite an instruction edit; use its instruction workflow."

@@ -5,13 +5,13 @@ import asyncio
 import threading
 import uuid
 from collections import OrderedDict
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from time import monotonic
 from typing import Any, TypeVar
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 from . import detailer, model_selection, storage, submission
 from .app_context import AppServices
@@ -45,9 +45,17 @@ class Prepare(_Request):
     detector: str = Field(min_length=1, max_length=128)
 
 
-class Preview(Prepare):
+class Preview(_Request):
+    detector: str | None = Field(default=None, min_length=1, max_length=128)
     source: int = Field(ge=1)
     model_revision: int | None = Field(default=None, ge=0)
+
+
+class Review(_Request):
+    receipt: str = Field(min_length=1, max_length=128)
+    region_id: str | None = Field(default=None, min_length=1, max_length=128)
+    kind: detailer.Kind | None = None
+    box: tuple[StrictInt, StrictInt, StrictInt, StrictInt] | None = None
 
 
 class Recipe(_Request):
@@ -72,9 +80,10 @@ class _Preview:
     source_id: int
     source: InstructionEditSource
     revision: int
-    candidates: list[detailer.Region]
+    candidates: Sequence[detailer.ReviewRegion]
     detectors: list[detailer.DetectorFacts]
     expires: float
+    detector: str | None
 
 
 def detectors_for(services: AppServices) -> DetailerDetectors:
@@ -110,13 +119,64 @@ async def _idle(services: AppServices, work: Callable[[Callable[[], bool]], T]) 
         raise
 
 
-def _mask_hashes(preview: _Preview, regions: list[detailer.Region]) -> list[str]:
+def _mask_hashes(preview: _Preview, regions: list[detailer.ReviewRegion]) -> list[str]:
     hashes = []
     for region in regions:
         with detailer.region_mask(preview.source.width, preview.source.height, region, PADDING, FEATHER) as mask:
             digest, _ = storage.store_mask(mask)
             hashes.append(digest)
     return hashes
+
+
+def _review_payload(token: str, preview: _Preview) -> dict[str, Any]:
+    regions = preview.candidates
+    width, height = preview.source.width, preview.source.height
+    boxes = {region.id: detailer.mask_box(width, height, region, PADDING) for region in regions}
+    return {
+        "receipt": token, "source": preview.source_id, "width": width, "height": height,
+        "detector": preview.detector, "expires_in": max(0.0, preview.expires - monotonic()),
+        "regions": [{
+            **region.model_dump(mode="json"),
+            "mask_box": boxes[region.id],
+            "overlaps": [other.id for other in regions if other.id != region.id and detailer.overlap(boxes[region.id], boxes[other.id]) > 0],
+        } for region in regions],
+    }
+
+
+def _review_regions(request: Review, preview: _Preview) -> list[detailer.ReviewRegion]:
+    by_id = {region.id: region for region in preview.candidates}
+    box = request.box
+    if box is not None and not detailer.in_source(box, preview.source.width, preview.source.height):
+        raise ValueError("Choose a nonempty box inside the source pixels.")
+    if request.region_id is None:
+        if request.kind is None or box is None:
+            raise ValueError("Choose Face or Hand and give its pixel bounds.")
+        if sum(isinstance(region, detailer.DrawnRegion) for region in by_id.values()) >= detailer.MAX_REGIONS:
+            raise ValueError("Remove a drawn region before adding another.")
+        region_id = next(f"drawn-{number}" for number in range(1, len(by_id) + 2) if f"drawn-{number}" not in by_id)
+        by_id[region_id] = detailer.DrawnRegion(id=region_id, kind=request.kind, box=box, origin="drawn")
+    else:
+        original = by_id.get(request.region_id)
+        if original is None or request.kind is not None:
+            raise ValueError("Choose a region from the current review.")
+        if isinstance(original, detailer.DrawnRegion):
+            if box is None:
+                del by_id[original.id]
+            else:
+                by_id[original.id] = original.model_copy(update={"box": box})
+        else:
+            detected_box = original.detected_box if isinstance(original, detailer.CorrectedRegion) else original.box
+            if box is None or box == detected_box:
+                by_id[original.id] = detailer.Region(
+                    id=original.id, kind=original.kind, confidence=original.confidence,
+                    detector=original.detector, box=detected_box,
+                )
+            else:
+                by_id[original.id] = detailer.CorrectedRegion(
+                    id=original.id, kind=original.kind, confidence=original.confidence,
+                    detector=original.detector, box=box, detected_box=detected_box, origin="corrected",
+                )
+    return sorted(by_id.values(), key=detailer.region_order)
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -127,9 +187,9 @@ def create_router(services: AppServices) -> APIRouter:
     def take(token: str) -> _Preview:
         preview = previews.get(token)
         if preview is None or preview.expires < monotonic() or token in admitting:
-            raise Refused(409, "This region review expired or was already queued; detect regions again.", DETAILER_RECEIPT)
+            raise Refused(409, "This region review changed, expired, or was already queued; start a new review.", DETAILER_RECEIPT)
         if preview.revision != model_selection.revision():
-            raise Refused(409, "The checkpoint changed; detect regions again before queuing.", DETAILER_STALE)
+            raise Refused(409, "The checkpoint changed; start a new region review before queuing.", DETAILER_STALE)
         return preview
 
     @router.get("/api/detailer/status")
@@ -165,6 +225,8 @@ def create_router(services: AppServices) -> APIRouter:
         def detect(cancel: Callable[[], bool]) -> tuple[InstructionEditSource, list[detailer.Region], list[detailer.DetectorFacts]]:
             _, proof, image = load_source(request.source)
             try:
+                if request.detector is None:
+                    return proof, [], []
                 regions, facts = detectors_for(services).detect(request.detector, image, cancel)
                 normalized = detailer.normalize_regions(regions, image.width, image.height, threshold=THRESHOLD, nms_iou=NMS_IOU)
                 return proof, normalized, facts
@@ -183,17 +245,24 @@ def create_router(services: AppServices) -> APIRouter:
             del previews[old]
         while len(previews) >= MAX_PREVIEWS:
             previews.popitem(last=False)
-        previews[token] = _Preview(request.source, proof, revision, regions, facts, now + PREVIEW_TTL)
-        boxes = {region.id: detailer.mask_box(proof.width, proof.height, region, PADDING) for region in regions}
-        return {
-            "receipt": token, "source": request.source, "width": proof.width, "height": proof.height,
-            "detector": request.detector, "expires_in": PREVIEW_TTL,
-            "regions": [{
-                **region.model_dump(mode="json"),
-                "mask_box": boxes[region.id],
-                "overlaps": [other.id for other in regions if other.id != region.id and detailer.overlap(boxes[region.id], boxes[other.id]) > 0],
-            } for region in regions],
-        }
+        reviewed = _Preview(request.source, proof, revision, regions, facts, now + PREVIEW_TTL, request.detector)
+        previews[token] = reviewed
+        return _review_payload(token, reviewed)
+
+    @router.post("/api/detailer/review")
+    async def review(request: Review) -> dict[str, Any]:
+        current = take(request.receipt)
+        try:
+            regions = _review_regions(request, current)
+        except ValueError as exc:
+            raise HTTPException(422, detail=str(exc)) from exc
+        # Replacing the receipt ensures a concurrent queue cannot choose
+        # IDs from a review whose displayed geometry has just changed.
+        token = uuid.uuid4().hex
+        reviewed = replace(current, candidates=regions)
+        del previews[request.receipt]
+        previews[token] = reviewed
+        return _review_payload(token, reviewed)
 
     @router.post("/api/detailer", response_model=JobAccepted)
     async def submit(request: Submit) -> JobAccepted:
@@ -240,9 +309,11 @@ def create_router(services: AppServices) -> APIRouter:
             recipe.update(model_id=services.model_id(), quantization=selected.quantization,
                           offload=selected.offload)
             hashes = await detached(lambda: _mask_hashes(reviewed, regions), "detailer-masks")
+            edited = any(isinstance(region, (detailer.DrawnRegion, detailer.CorrectedRegion)) for region in reviewed.candidates)
             plan = detailer.DetailerPlan(
+                version="detailer-v2" if edited else "detailer-v1",
                 source_id=reviewed.source_id, source=reviewed.source, detectors=reviewed.detectors,
-                candidates=reviewed.candidates, accepted=[region.id for region in regions], masks=hashes,
+                candidates=list(reviewed.candidates), accepted=[region.id for region in regions], masks=hashes,
                 padding=PADDING, feather=FEATHER, threshold=THRESHOLD, nms_iou=NMS_IOU,
                 base_seed=base_seed, recipe=recipe,
             )

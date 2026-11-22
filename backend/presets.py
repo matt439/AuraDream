@@ -9,10 +9,9 @@ from pathlib import Path
 
 from . import gallery_lock, preset_portability, sidecar_io
 from .schemas_preset_portability import PresetImportCommit
-from .schemas_presets import MAX_PRESETS, Preset, PresetFields, PresetUpdate
+from .schemas_presets import MAX_PRESETS, SETUP_VERSIONS, Preset, PresetFields, PresetUpdate, setup_file_version
 
 MAX_FILE_BYTES = 8 * 1024 * 1024
-_VERSION = 1
 
 
 class PresetsError(RuntimeError):
@@ -44,12 +43,14 @@ def _read(path: Path) -> list[Preset]:
         payload = json.loads(raw, object_pairs_hook=_unique_fields)
         if not isinstance(payload, dict) or set(payload) != {"version", "items"}:
             raise ValueError("unknown file schema")
-        if type(payload["version"]) is not int or payload["version"] != _VERSION:
+        if type(payload["version"]) is not int or payload["version"] not in SETUP_VERSIONS:
             raise ValueError("unknown version")
         items = payload["items"]
         if not isinstance(items, list) or len(items) > MAX_PRESETS:
             raise ValueError("invalid collection size")
         parsed = [Preset.model_validate(item) for item in items]
+        if payload["version"] < setup_file_version(parsed):
+            raise ValueError("Then refine recipes require saved setup version 2")
         if len({item.id for item in parsed}) != len(parsed):
             raise ValueError("duplicate ids")
         return parsed
@@ -64,7 +65,7 @@ def _read(path: Path) -> list[Preset]:
 
 def _write(path: Path, items: list[Preset]) -> None:
     data = (json.dumps(
-        {"version": _VERSION, "items": [item.model_dump() for item in items]},
+        {"version": setup_file_version(items), "items": [item.model_dump() for item in items]},
         ensure_ascii=False, indent=2, allow_nan=False,
     ) + "\n").encode("utf-8")
     if len(data) > MAX_FILE_BYTES:

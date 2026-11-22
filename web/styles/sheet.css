@@ -154,12 +154,14 @@
 /* A refine pass says so, and at what strength - on a card always, on the
    sheet where it does not lay the strength out already: a pass looks like its
    source by design. Top left, clear of the star. */
-.card.refined::before, .sheet-cell.refined::before {
+.card.refined::before, .sheet-cell.refined::before, .card.imported::before {
   content: "⤢ " attr(data-strength); position: absolute; top: 6px; left: 6px; z-index: 1;
   padding: 2px 7px; border-radius: var(--r-lg); background: rgba(0, 0, 0, 0.62);
   color: #fff; font-size: var(--fs-label); pointer-events: none;
 }
 .card.tiled-refined::before, .sheet-cell.tiled-refined::before { content: "Tiled Refine"; }
+.card.imported::before { content: "Imported" / ""; }
+.card.imported.ref::before { top: 32px; }
 /* A wrapped row's cells carry their own label, the head they have no row for. */
 .sheet-cell .cap {
   position: absolute; inset: auto 0 0 0; padding: 14px var(--sp-2) 6px;
@@ -255,6 +257,7 @@
   font-size: var(--fs-label); font-variant-numeric: tabular-nums; pointer-events: none;
 }
 .card:is(:hover, :focus-within) .tools::before { display: block; }
+.card.imported .tools::before { content: "#" attr(data-n) "\00a0· " attr(data-size) "\00a0· Imported" / ""; }
 .card .tools:has(> button:is(:hover, :focus-visible))::before { visibility: hidden; }
 /* A tool this checkpoint cannot use, or ❐ with four references taken: the
    glyph dimmed and no lit hover, as the lightbox's Refine - aria-disabled, so

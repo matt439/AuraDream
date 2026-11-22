@@ -18,6 +18,9 @@
 .card.binned .tools[data-binned]::before {
   content: "#" attr(data-n) "\00a0· " attr(data-size) "\00a0· seed\00a0" attr(data-seed) "\00a0· " attr(data-binned) / "";
 }
+.card.binned.imported .tools[data-binned]::before {
+  content: "#" attr(data-n) "\00a0· " attr(data-size) "\00a0· Imported\00a0· " attr(data-binned) / "";
+}
 .card.binned:has(> .card-note) .tools[data-binned]::before { content: none; }
 
 /* The held controls that are no .ghost button - Starred and Gallery beside,

@@ -578,6 +578,8 @@ Gotchas:
   `/api/fake/expand`, `/api/fake/model` (`overrides`, `stuck_critic`,
   `access`), `/api/fake/sign-in` (`token`, `unsourced`), `/api/fake/lora`,
   `/api/fake/bin-age`, `/api/fake/peak`, `/api/fake/card` (a claimed card),
+  `/api/fake/regional-prompts` (enable the bounded regional prompt recipe on an Animagine fake),
+  `/api/fake/controlnet` (enable the pose and depth recipe on an Animagine fake),
   `/api/fake/refine` (`supported`: the claimed checkpoint's refine pass),
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake), `/api/fake/detailer` (`empty`, `fail`, `prepared`, `seconds`, `fail_pass`:

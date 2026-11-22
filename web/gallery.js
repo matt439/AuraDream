@@ -75,6 +75,7 @@ function loadGallery() {
   if (galleryPending) return galleryPending;
   const epoch = galleryEpoch;
   const params = new URLSearchParams({ limit: sheetMode ? sheetPage : PAGE });
+  if (sheetMode) params.set('include_imported', 'false');
   // The sheet asks for the whole run at once, so only the grid ever pages.
   const last = galleryRecords[galleryRecords.length - 1];
   if (!sheetMode && last) params.set('before', last.id);
@@ -518,6 +519,7 @@ function card(rec) {
   const div = document.createElement('div');
   div.className = 'card';
   div.classList.toggle('fav', !!rec.favorite);
+  div.classList.toggle('imported', !!rec.imported_name);
   // Tagged by id so an action taken elsewhere - the lightbox, mostly - can
   // find this card and keep it in step; and by when it was made, which its
   // tombstone keeps for the day's lines (cardDay).
@@ -595,7 +597,7 @@ function card(rec) {
     reuseButton(rec, true),
     refine,
     reference,
-    tool('⊞', 'Show this run as a sheet', () => showRecordRun(rec), 'Sheet'),
+    runSheetTool(rec),
     // Last before Delete, so the tools before it keep their places.
     inpaint,
     del,
@@ -607,6 +609,13 @@ function card(rec) {
   // Picked, or in select mode, as the selection says (gallery-select.js).
   syncCardSelected(div);
   return div;
+}
+
+function runSheetTool(rec) {
+  const button = tool('⊞', rec.imported_name ? 'Imported images have no run' : 'Show this run as a sheet',
+    () => showRecordRun(rec), 'Sheet');
+  if (rec.imported_name) button.setAttribute('aria-disabled', 'true');
+  return button;
 }
 
 // The card's ⤢, and the right-click menu's Refine… on a sheet cell: said
@@ -622,7 +631,7 @@ function refineFromCard(rec, div) {
 // facts' ⊞ Show this run closes it.
 function showRecordRun(rec) {
   if (!rec.run_id && !rec.job_id) {
-    showError(`${RUN_NONE}.`, true, { slot: els.galleryError });
+    showError(rec.imported_name ? 'Imported images have no run.' : `${RUN_NONE}.`, true, { slot: els.galleryError });
     return;
   }
   if (els.lightbox.open) closeLightbox();

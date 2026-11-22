@@ -160,6 +160,7 @@ function syncBinControls() {
   els.bin.setAttribute('aria-pressed', String(binMode));
   els.bin.classList.toggle('active', binMode);
   els.galleryTitle.textContent = binMode ? 'Recycle bin' : 'Gallery';
+  $('btn-gallery-import').hidden = binMode;
   els.emptyBin.hidden = els.binAge.hidden = els.restorePicked.hidden = els.purgePicked.hidden = !binMode;
   for (const el of [els.sheetBtn, els.favOnly]) {
     const titled = el.type === 'checkbox' ? el.closest('label') : el;
@@ -271,7 +272,8 @@ function binCard(div, img, rec) {
     tools.dataset.binned = age.replaceAll(' ', '\u00a0');
     // A phone's card shows the age alone, on its foot ("3 days ago").
     tools.dataset.age = age.replace(/^binned /, '').replaceAll(' ', '\u00a0');
-    img.setAttribute('aria-label', `Open #${rec.id}, ${age}: ${rec.prompt}`);
+    const subject = rec.imported_name ? `Imported image, ${rec.imported_name}` : rec.prompt;
+    img.setAttribute('aria-label', `Open #${rec.id}, ${age}: ${subject}`);
   }
   tools.append(restore, del);
   div.append(img, tools);

@@ -115,6 +115,14 @@ async def unusable_input(
     (Generate, Swap tags, Finish) never queues one, whatever the gate: a
     closed one says the editor is unavailable, an unmeasured loader says
     so, else where edits are queued from (`replay_held_reason`)."""
+    if request.spatial_conditioning is not None:
+        from .spatial_admission import require_available
+
+        try:
+            selected = current_settings(services.settings())
+            await asyncio.to_thread(require_available, services.backend(), selected, request)
+        except ValueError as exc:
+            return Unusable.from_error("spatial_conditioning", exc)
     if request.tiled_refine is not None:
         try:
             selected = current_settings(services.settings())
@@ -366,6 +374,8 @@ def input_spec(request: GenerateRequest, *, model_id: str | None = None) -> tupl
     )
     if request.tiled_refine is not None:
         return (*inputs, request.tiled_refine)
+    if request.spatial_conditioning is not None:
+        return (*inputs, request.spatial_conditioning)
     if request.refine is not None and model_id is not None and refine_qualification.applies(model_id):
         return (*inputs, request.width, request.height, request.steps, request.guidance_scale,
                 request.strength, request.true_cfg, request.mu, request.crop_anchor)
@@ -391,6 +401,7 @@ def status_counts(results) -> dict[str, int]:
 async def resolve_selection(
     services: AppServices, *, ids: list[int] | None, search: str | None, favorites: bool, all_models: bool,
     run: str | None = None,
+    include_imported: bool = True,
 ) -> tuple[list[ImageRecord], list[int], set[int]]:
     """The images an action on several of them acts on, oldest first, the
     picked ids the gallery no longer holds, and those of them that are in
@@ -438,6 +449,7 @@ async def resolve_selection(
         search=search,
         favorites_only=favorites,
         model_id=services.model_scope(all_models),
+        include_imported=include_imported,
     )
     if not records:
         raise HTTPException(status_code=404, detail="nothing in the gallery matches that selection")

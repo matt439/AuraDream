@@ -17,13 +17,16 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import deleted_files, gallery_lock, storage
+from .controlnet_admission import guide_matches_path
+from .controlnet_contract import ControlNetSpec
 from .instruction_edit import InstructionEditSource, descriptor_from_image
 from .metadata import edit_from_json
 from .search import strict_scope, unstarred_scope
+from .spatial_conditioning import conditioning_from_json
 
 
-# The images a starred one was made from: a refine pass's source and a klein
-# render's references, by id. They are part of the starred image's
+# The images a starred one was made from: refine sources, references, and
+# proven instruction edit and ControlNet sources. They are part of the starred image's
 # reproduction set, and a sweep that took them left a kept pass that could
 # never be made again - with nothing before the click saying it depended on
 # them. One level: the source of a kept source is not the starred image's to
@@ -36,7 +39,7 @@ _STARRED_SOURCE = (
     " AND refine IS NOT NULL"
     " UNION SELECT ref.value FROM images AS starred, json_each(starred.reference) AS ref"
     " WHERE starred.favorite = 1 AND starred.binned_at IS NULL"
-    " AND starred.reference IS NOT NULL AND ref.type = 'integer') OR instruction_edit_source_kept(id))"
+    " AND starred.reference IS NOT NULL AND ref.type = 'integer') OR proven_source_kept(id))"
 )
 # What `keep_favorites` leaves out of a delete: the live stars and their
 # sources. The one predicate `delete_matching`, `clear_history` and the
@@ -91,11 +94,39 @@ def _edit_sources(conn, *, starred: bool = False) -> set[int]:
     return sources
 
 
-def _prepare_edit_sources(conn) -> None:
+def _controlnet_sources(conn, *, starred: bool = False, candidates: set[int] | None = None) -> set[int]:
+    """Find ControlNet guides backed by their recorded RGB proof and gallery row."""
+    if candidates is not None and not candidates:
+        return set()
+    where = " AND favorite = 1" if starred else ""
+    rows = conn.execute(f"SELECT spatial_conditioning FROM images WHERE binned_at IS NULL "
+                        f"AND spatial_conditioning IS NOT NULL{where}")
+    kept: set[int] = set()
+    checked: set[tuple[int, InstructionEditSource]] = set()
+    for row in rows:
+        try:
+            condition = conditioning_from_json(row["spatial_conditioning"])
+        except ValueError:
+            continue
+        if not isinstance(condition, ControlNetSpec) or condition.source is None:
+            continue
+        source, proof = condition.source, condition.guide
+        if source in kept or (candidates is not None and source not in candidates) or (source, proof) in checked:
+            continue
+        checked.add((source, proof))
+        image = conn.execute("SELECT filename, width, height FROM images WHERE id = ?", (source,)).fetchone()
+        if image is None or tuple(image) != (proof.filename, proof.width, proof.height):
+            continue
+        if guide_matches_path(storage.settings.outputs_dir / proof.filename, proof):
+            kept.add(source)
+    return kept
+
+
+def _prepare_proven_sources(conn) -> None:
     # Per-connection immutable membership, computed in the same storage
     # reservation/write transaction as the predicate that consumes it.
-    kept = _edit_sources(conn, starred=True)
-    conn.create_function("instruction_edit_source_kept", 1, lambda image_id: int(image_id in kept))
+    kept = _edit_sources(conn, starred=True) | _controlnet_sources(conn, starred=True)
+    conn.create_function("proven_source_kept", 1, lambda image_id: int(image_id in kept))
 
 
 def _ordered_ids_pin(ids: Iterable[int]) -> str:
@@ -115,6 +146,7 @@ def matching_preview(
     free_words: bool = False,
     *,
     keep_favorites: bool = True,
+    include_unscoped_sources: bool = False,
 ) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
     checkpoints a substring term (`job:`, `model:`) actually matched.
@@ -152,7 +184,7 @@ def matching_preview(
     """
     filters, params = (unstarred_scope if free_words else strict_scope)(search)
     if model_id:
-        filters.append("model_id = ?")
+        filters.append(storage.GALLERY_CHECKPOINT_SCOPE if include_unscoped_sources else "model_id = ?")
         params.append(model_id)
     if live_only:
         filters.append(storage._LIVE)
@@ -164,7 +196,7 @@ def matching_preview(
     clause = where()
     with storage._session() as conn:
         conn.execute("BEGIN")
-        _prepare_edit_sources(conn)
+        _prepare_proven_sources(conn)
         records, favorites, sources_kept, binned = conn.execute(
             f"""SELECT COUNT(*), COALESCE(SUM({_LIVE_STAR}), 0),
                        COALESCE(SUM({_NOT_LIVE_STAR} AND {_STARRED_SOURCE}), 0),
@@ -208,9 +240,9 @@ def matching_preview(
             "last": last,
             "newer": newer,
             "pin": _ordered_ids_pin(row[0] for row in ids),
-            "prompts": distinct("prompt", 4),
+            "prompts": [prompt for prompt in distinct("prompt", 4) if prompt],
             "jobs": [j for j in distinct("job_id", 6) if j],
-            "models": distinct("model_id", 6),
+            "models": [model for model in distinct("model_id", 6) if model],
         }
 
 
@@ -237,6 +269,7 @@ def delete_matching(
     free_words: bool = False,
     *,
     pin: str | None = None,
+    include_unscoped_sources: bool = False,
 ) -> dict[str, Any]:
     """Delete the rows a strict scope selects, and their files - nothing else.
 
@@ -263,7 +296,7 @@ def delete_matching(
     if keep_favorites:
         filters.append(_UNKEPT)
     if model_id:
-        filters.append("model_id = ?")
+        filters.append(storage.GALLERY_CHECKPOINT_SCOPE if include_unscoped_sources else "model_id = ?")
         params.append(model_id)
     if not filters:
         raise ValueError("a filter is required; the whole gallery is `clear` without --where")
@@ -272,7 +305,7 @@ def delete_matching(
     where = " AND ".join(filters)
     with storage._write_lock, storage._session() as conn:
         conn.execute("BEGIN IMMEDIATE")
-        _prepare_edit_sources(conn)
+        _prepare_proven_sources(conn)
         if expected is not None or pin is not None:
             (found,) = conn.execute(f"SELECT COUNT(*) FROM images WHERE {where}", params).fetchone()
             if expected is not None and found != expected:
@@ -490,8 +523,8 @@ def bin_summary(before: str | None = None) -> dict[str, Any]:
 
     `bytes` is the binned PNGs and their thumbnails as they are on disk now,
     a file gone or locked counted as nothing. `sources_in_use` is the binned
-    ids a live image names as its refine source or a reference - the shape
-    of `_STARRED_SOURCE`'s arms - which Empty recycle bin's confirmation
+    ids a live image names as a source or reference - the shape of
+    `_STARRED_SOURCE`'s arms - which Empty recycle bin's confirmation
     names: those images can never be made again once it is emptied.
 
     With `before` (`bin_cutoff`), `records`, `bytes`, `sources_in_use` and
@@ -515,7 +548,7 @@ def bin_summary(before: str | None = None) -> dict[str, Any]:
             )
             if row[0] in scoped
         ]
-        in_use = sorted(set(in_use) | (_edit_sources(conn) & scoped))
+        in_use = sorted(set(in_use) | (_edit_sources(conn) & scoped) | _controlnet_sources(conn, candidates=scoped))
     size = 0
     for name in names:
         png = storage.settings.outputs_dir / name
@@ -665,7 +698,7 @@ def summarise() -> dict[str, int]:
     masks = list(storage.masks_dir().glob("*.png"))
     if storage.settings.db_path.exists():
         with storage._session() as conn:
-            _prepare_edit_sources(conn)
+            _prepare_proven_sources(conn)
             total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
             # The live stars: a binned one is unkept, as `_UNKEPT` reads it.
             favorites = conn.execute(
@@ -720,7 +753,7 @@ def clear_history(keep_favorites: bool = False, in_flight: InFlight | None = Non
     """
     where = f" WHERE {_UNKEPT}" if keep_favorites else ""
     with storage._write_lock, storage._session() as conn:
-        _prepare_edit_sources(conn)
+        _prepare_proven_sources(conn)
         doomed = [r["filename"] for r in conn.execute(f"SELECT filename FROM images{where}")]
         conn.execute(f"DELETE FROM images{where}")
         # Clear is a deliberate end to local run recovery, including the

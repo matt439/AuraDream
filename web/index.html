@@ -25,9 +25,11 @@
 <link rel="stylesheet" href="/static/styles/analysis.css">
 <link rel="stylesheet" href="/static/styles/prompt-assistant.css">
 <link rel="stylesheet" href="/static/styles/generation.css">
+<link rel="stylesheet" href="/static/styles/regional-prompts.css">
 <link rel="stylesheet" href="/static/styles/gallery.css">
 <link rel="stylesheet" href="/static/styles/sheet.css">
 <link rel="stylesheet" href="/static/styles/lightbox.css">
+<link rel="stylesheet" href="/static/styles/blind-compare.css">
 <link rel="stylesheet" href="/static/styles/refine.css">
 <link rel="stylesheet" href="/static/styles/inpaint.css">
 <link rel="stylesheet" href="/static/styles/outpaint.css">
@@ -926,6 +928,42 @@
         </div>
       </div>
     </details>
+    <details class="setup-disclosure" id="controlnet-section" hidden>
+      <summary>ControlNet <span id="controlnet-summary">off</span></summary>
+      <div class="setup-body">
+        <div class="field">
+          <label for="controlnet-mode">Guide type</label>
+          <select id="controlnet-mode">
+            <option value="">Off</option>
+            <option value="pose">Pose map</option>
+            <option value="depth">Depth map</option>
+          </select>
+        </div>
+        <div class="row" id="controlnet-fields" hidden>
+          <div class="sub grow">
+            <i><label for="controlnet-source">Guide gallery ID</label></i>
+            <input id="controlnet-source" type="number" min="1" step="1" inputmode="numeric" aria-describedby="controlnet-note">
+          </div>
+          <div class="sub narrow">
+            <i><label for="controlnet-strength">Strength</label></i>
+            <input id="controlnet-strength" type="number" min="0.1" max="1" value="0.8" step="0.05" inputmode="decimal">
+          </div>
+          <button type="button" class="ghost small" id="controlnet-preview">Preview guide</button>
+        </div>
+        <p class="hint" id="controlnet-note" role="status" hidden></p>
+        <img id="controlnet-image" alt="ControlNet guide preview" width="112" height="112" hidden>
+      </div>
+    </details>
+    <details class="setup-disclosure" id="regional-prompts-section" hidden>
+      <summary>Region prompts <span id="regional-prompts-summary">off</span></summary>
+      <div class="setup-body">
+        <p class="hint">The main prompt describes the whole image. Enter the edges of each region as percentages from the top left. Overlapping regions share influence.</p>
+        <button type="button" class="ghost small" id="regional-prompts-add" aria-describedby="regional-prompts-reason">Add region</button>
+        <p class="hint warn" id="regional-prompts-reason" role="status" hidden></p>
+        <div id="regional-prompts-map" aria-hidden="true" hidden></div>
+        <div id="regional-prompts-rows"></div>
+      </div>
+    </details>
   </section>
 
   <section class="stage" id="stage">
@@ -1141,6 +1179,7 @@
               <li role="menuitem" tabindex="-1" data-picked="unstar">☆ Unstar picked</li>
               <li role="menuitem" tabindex="-1" data-picked="compare" aria-disabled="true">Compare picked</li>
               <li role="menuitem" tabindex="-1" data-picked="review" aria-haspopup="dialog" aria-controls="review-picked">Review picked…</li>
+              <li role="menuitem" tabindex="-1" data-picked="blind" aria-haspopup="dialog" aria-controls="blind-compare" aria-disabled="true">Blind comparison…</li>
               <li role="menuitem" tabindex="-1" data-picked="tier">Re-render picked at 1 MP…</li>
               <li role="menuitem" tabindex="-1" data-picked="seeds" aria-disabled="true">Seeds to grid</li>
               <li role="menuitem" tabindex="-1" data-picked="bin">⌦ Bin picked</li>
@@ -1176,6 +1215,8 @@
             aria-controls="saved-searches-dialog" aria-label="Saved searches…" title="Save, manage and apply named gallery filters"><span class="full">Saved searches…</span><span class="short" aria-hidden="true">⌕</span></button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
             title="Back up the gallery, the picked or the starred images, bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
+          <button type="button" class="ghost small foot-btn" id="btn-gallery-import" aria-haspopup="dialog"
+            aria-controls="gallery-import-dialog" aria-label="Import image…" title="Import a photo or sketch into the gallery"><span class="full">Import image…</span><span class="short" aria-hidden="true">+</span></button>
         </div>
         <!-- What F did to a card's or a sheet cell's star, for a screen reader:
              focus stays on the image, and nothing else says it (sayStar). -->
@@ -1338,6 +1379,41 @@
     <button type="button" class="ghost" id="review-picked-close" autofocus>Close</button></div>
   <p id="review-picked-count" role="status"></p>
   <ol id="review-picked-list" aria-label="Images in pick order"></ol>
+</dialog>
+<dialog id="blind-compare" class="blind-compare" aria-labelledby="blind-compare-title">
+  <div class="blind-compare-row blind-compare-head">
+    <h2 id="blind-compare-title">Blind comparison</h2>
+    <button type="button" class="ghost" id="blind-compare-close" autofocus>Close</button>
+  </div>
+  <div id="blind-compare-choose" class="blind-compare-row" hidden>
+    <label>First variant <select id="blind-compare-first"></select></label>
+    <label>Second variant <select id="blind-compare-second"></select></label>
+    <button type="button" id="blind-compare-start">Start blind review</button>
+  </div>
+  <p id="blind-compare-error" class="error" role="alert" hidden></p>
+  <div id="blind-compare-review" hidden>
+    <div class="blind-compare-row">
+      <button type="button" class="ghost" id="blind-compare-prev" aria-label="Previous pair">‹</button>
+      <label>Pair <select id="blind-compare-pair"></select></label>
+      <button type="button" class="ghost" id="blind-compare-next" aria-label="Next pair">›</button>
+      <button type="button" class="ghost" data-blind-zoom="fit" aria-pressed="true">Fit</button>
+      <button type="button" class="ghost" data-blind-zoom="native" aria-pressed="false">1:1</button>
+      <button type="button" class="ghost" data-blind-zoom="double" aria-pressed="false">2×</button>
+    </div>
+    <div class="blind-compare-images">
+      <div class="blind-compare-side"><h3>A</h3><div class="blind-compare-stage" role="group" tabindex="0" aria-label="Image A" title="At 1:1 or 2×, drag or use the arrow keys to pan both images"><img alt="" draggable="false"></div></div>
+      <div class="blind-compare-side"><h3>B</h3><div class="blind-compare-stage" role="group" tabindex="0" aria-label="Image B" title="At 1:1 or 2×, drag or use the arrow keys to pan both images"><img alt="" draggable="false"></div></div>
+    </div>
+    <div class="blind-compare-row" id="blind-compare-votes" role="group" aria-label="Your preference">
+      <button type="button" class="ghost" data-blind-vote="a" aria-pressed="false">Prefer A</button>
+      <button type="button" class="ghost" data-blind-vote="tie" aria-pressed="false">Tie</button>
+      <button type="button" class="ghost" data-blind-vote="b" aria-pressed="false">Prefer B</button>
+      <button type="button" id="blind-compare-reveal">Reveal settings</button>
+    </div>
+    <p class="hint" id="blind-compare-status" role="status"></p>
+    <p class="hint" id="blind-compare-unmatched" hidden></p>
+    <section id="blind-compare-results" hidden aria-labelledby="blind-compare-result-head"></section>
+  </div>
 </dialog>
 <dialog class="gallery-sheet" id="gallery-filter-sheet" aria-labelledby="gallery-filter-title">
   <div class="gallery-sheet-head">
@@ -1758,12 +1834,14 @@
     <!-- The source, the mask drawn over it as a tint and an outline on a
          canvas of the source's own size, and the brush's ring. -->
     <div class="ip-stage" id="inpaint-stage">
-      <img id="inpaint-image" alt="" draggable="false">
-      <canvas id="inpaint-canvas" tabindex="0" aria-roledescription="mask editor"
-              aria-describedby="inpaint-keys inpaint-status"></canvas>
+      <div class="ip-picture" id="inpaint-picture">
+        <img id="inpaint-image" alt="" draggable="false">
+        <canvas id="inpaint-canvas" tabindex="0" aria-roledescription="mask editor"
+                aria-describedby="inpaint-keys inpaint-status"></canvas>
+        <!-- Only the masked area's box, where the server's preview put it. -->
+        <div class="ip-crop-box" id="inpaint-crop-box" aria-hidden="true" hidden></div>
+      </div>
       <div class="ip-brush" id="inpaint-brush" aria-hidden="true" hidden></div>
-      <!-- Only the masked area's box, where the server's preview put it. -->
-      <div class="ip-crop-box" id="inpaint-crop-box" aria-hidden="true" hidden></div>
     </div>
     <div class="ip-tools" id="inpaint-tools" role="toolbar" aria-label="Mask tools" aria-controls="inpaint-canvas">
       <div class="ip-row">
@@ -1794,6 +1872,14 @@
         <label class="check ip-show" title="Show the mask over the picture"><input type="checkbox" id="inpaint-show" checked> Show mask</label>
       </div>
       <div class="ip-row">
+        <div class="ip-group" role="group" aria-label="Image view">
+          <button type="button" class="ghost small" id="inpaint-fit" aria-pressed="true" aria-keyshortcuts="0"
+                  title="Fit the whole image in the frame (0)">Fit</button>
+          <button type="button" class="ghost small" id="inpaint-actual" aria-label="Actual pixels (1:1)" aria-pressed="false" aria-keyshortcuts="1"
+                  title="One image pixel per screen pixel (1)">1:1</button>
+          <button type="button" class="ghost small" id="inpaint-pan" aria-pressed="false" aria-keyshortcuts="H"
+                  title="Drag to move the image (H)">Pan</button>
+        </div>
         <label class="ip-slider" title="The brush's diameter in the source's pixels: [ and ], or Alt+wheel over the picture">
           <span>Size</span><input type="range" id="inpaint-size" min="2" max="512" step="1" aria-keyshortcuts="[ ]">
           <output id="inpaint-size-out" for="inpaint-size"></output></label>
@@ -1805,7 +1891,9 @@
     <!-- What the mask is now and where its upload is: one line, never more. -->
     <p class="ip-status" id="inpaint-status" role="status"></p>
     <p class="sr-only" id="inpaint-keys">With the picture focused: B brush, E eraser, [ and ] size, I invert,
-      Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo; the arrow keys move the brush and Space paints.</p>
+      Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo. Press 0 to fit the whole image or 1 for actual pixels.
+      H selects Pan, where dragging or the arrow keys move the image. With Brush or Eraser selected,
+      the arrow keys move the brush and Space paints.</p>
   </div>
   <div class="ip-controls">
     <p class="rf-source-line" id="inpaint-source-line"></p>
@@ -2097,7 +2185,19 @@
   <div class="ip-paint">
     <div class="ip-stage detailer-stage" id="detailer-stage">
       <img id="detailer-image" alt="" draggable="false">
-      <div class="detailer-boxes" id="detailer-boxes" role="group" aria-label="Detected regions on the source"></div>
+      <div class="detailer-boxes" id="detailer-boxes" role="group" aria-label="Reviewed regions on the source"></div>
+      <div class="detailer-draft-box" id="detailer-draft-box" hidden></div>
+    </div>
+    <div class="detailer-draw-tools">
+      <button type="button" class="ghost small" id="detailer-draw-face">Draw face</button>
+      <button type="button" class="ghost small" id="detailer-draw-hand">Draw hand</button>
+    </div>
+    <div class="detailer-draw-edit" id="detailer-draw-edit" hidden>
+      <label class="field"><span>Drag on the image or enter pixel bounds (left, top, right, bottom)</span>
+        <input type="text" id="detailer-bounds" autocomplete="off" spellcheck="false">
+      </label>
+      <button type="button" class="ghost small" id="detailer-draw-cancel">Cancel box</button>
+      <button type="button" class="primary small" id="detailer-draw-apply">Apply box</button>
     </div>
   </div>
   <div class="ip-controls">
@@ -2130,7 +2230,7 @@
     </div>
     <div class="rf-actions dialog-actions">
       <button type="button" class="ghost" id="detailer-cancel">Cancel</button>
-      <button type="button" class="primary" id="detailer-run" aria-keyshortcuts="Control+Enter" aria-disabled="true" title="Detect regions, then review them before queuing.">Queue detail passes</button>
+      <button type="button" class="primary" id="detailer-run" aria-keyshortcuts="Control+Enter" aria-disabled="true" title="Detect or draw regions, then review them before queuing.">Queue detail passes</button>
     </div>
   </div>
 </dialog>
@@ -2642,6 +2742,26 @@
   </div>
 </dialog>
 
+<dialog class="gallery-import-dialog" id="gallery-import-dialog" aria-labelledby="gallery-import-title"
+        aria-describedby="gallery-import-intro">
+  <div class="gallery-import-head dialog-head">
+    <h2 id="gallery-import-title">Import image</h2>
+    <button type="button" class="ghost" id="gallery-import-close">Close</button>
+  </div>
+  <p class="hint" id="gallery-import-intro">Save a photo or sketch to the gallery for use as a reference or Refine source.</p>
+  <div class="gallery-import-drop" id="gallery-import-drop">
+    <button type="button" class="ghost" id="gallery-import-choose">Choose file…</button>
+    <input type="file" id="gallery-import-file" accept="image/png,image/jpeg,image/webp" hidden>
+    <p class="hint">You can also drop or paste one PNG, JPEG or WebP image here.</p>
+  </div>
+  <p id="gallery-import-status" role="status"></p>
+  <div class="gallery-import-actions dialog-actions">
+    <button type="button" class="ghost" id="gallery-import-view" hidden>Open imported image</button>
+    <button type="button" class="primary" id="gallery-import-run" aria-disabled="true"
+      title="Choose, drop or paste an image first">Import</button>
+  </div>
+</dialog>
+
 <aside class="prompt-assistant-sidebar" id="prompt-assistant-sidebar" aria-labelledby="assistant-title" hidden>
   <div class="assistant-head">
     <h2 id="assistant-title">Prompt assistant</h2>
@@ -2716,7 +2836,9 @@
 <script src="/static/model-shots.js"></script>
 <script src="/static/model-storage.js"></script>
 <script src="/static/model-favourites.js"></script>
+<script src="/static/regional-prompts.js"></script>
 <script src="/static/generation.js"></script>
+<script src="/static/controlnet.js"></script>
 <script src="/static/job-progress.js"></script>
 <script src="/static/job-queue.js"></script>
 <script src="/static/grid-preview.js"></script>
@@ -2726,10 +2848,12 @@
 <script src="/static/runs.js"></script>
 <script src="/static/viewer.js"></script>
 <script src="/static/gallery.js"></script>
+<script src="/static/gallery-import.js"></script>
 <script src="/static/ask-dialog.js"></script>
 <script src="/static/gallery-actions.js"></script>
 <script src="/static/gallery-head.js"></script>
 <script src="/static/gallery-select.js"></script>
+<script src="/static/blind-compare.js"></script>
 <script src="/static/gallery-batch.js"></script>
 <script src="/static/reuse.js"></script>
 <script src="/static/png-settings.js"></script>
@@ -2752,6 +2876,7 @@
 <script src="/static/outpaint.js"></script>
 <script src="/static/instruction-edit.js"></script>
 <script src="/static/detailer.js"></script>
+<script src="/static/detailer-drawing.js"></script>
 <script src="/static/prompt-note.js"></script>
 <script src="/static/tags.js"></script>
 <script src="/static/tag-lists.js"></script>

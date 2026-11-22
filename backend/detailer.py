@@ -54,12 +54,10 @@ class DetectorFacts(_Contract):
     additional_assets: Annotated[list[AssetFacts], Field(max_length=8)] = []
 
 
-class Region(_Contract):
+class RegionBounds(_Contract):
     id: Annotated[str, Field(min_length=1, max_length=128)]
     kind: Kind
     box: tuple[int, int, int, int]
-    confidence: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
-    detector: Annotated[str, Field(min_length=1, max_length=128)]
 
     @model_validator(mode="before")
     @classmethod
@@ -69,16 +67,46 @@ class Region(_Contract):
         return value
 
     @model_validator(mode="after")
-    def _nonempty(self) -> Region:
+    def _nonempty(self) -> RegionBounds:
         x1, y1, x2, y2 = self.box
         if not (0 <= x1 < x2 and 0 <= y1 < y2):
             raise ValueError("a detail region must be a nonempty nonnegative pixel box")
         return self
 
 
-def region_order(region: Region) -> tuple[Any, ...]:
+class Region(RegionBounds):
+    confidence: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+    detector: Annotated[str, Field(min_length=1, max_length=128)]
+
+
+class DrawnRegion(RegionBounds):
+    origin: Literal["drawn"]
+
+
+class CorrectedRegion(Region):
+    origin: Literal["corrected"]
+    detected_box: tuple[int, int, int, int]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _json_detected_box(cls, value: object) -> object:
+        if isinstance(value, dict) and isinstance(value.get("detected_box"), list):
+            return {**value, "detected_box": tuple(value["detected_box"])}
+        return value
+
+
+ReviewRegion = Region | DrawnRegion | CorrectedRegion
+
+
+def region_order(region: ReviewRegion) -> tuple[Any, ...]:
     x1, y1, x2, y2 = region.box
-    return region.kind, y1, x1, y2, x2, region.detector, region.id
+    detector = region.detector if isinstance(region, Region) else ""
+    return region.kind, y1, x1, y2, x2, detector, region.id
+
+
+def in_source(box: tuple[int, int, int, int], width: int, height: int) -> bool:
+    left, top, right, bottom = box
+    return 0 <= left < right <= width and 0 <= top < bottom <= height
 
 
 def _canonical(value: Any) -> str:
@@ -92,11 +120,11 @@ class DetailerPlan(_Contract):
     Current request ceilings may become tighter without making this unreadable.
     Original source ids can be unresolved after a subset import; proof remains.
     """
-    version: Literal["detailer-v1"] = "detailer-v1"
+    version: Literal["detailer-v1", "detailer-v2"] = "detailer-v1"
     source_id: Annotated[int, Field(gt=0, le=2**63 - 1)] | None
     source: InstructionEditSource
-    detectors: Annotated[list[DetectorFacts], Field(min_length=1, max_length=16)]
-    candidates: Annotated[list[Region], Field(min_length=1, max_length=512)]
+    detectors: Annotated[list[DetectorFacts], Field(max_length=16)]
+    candidates: Annotated[list[ReviewRegion], Field(min_length=1, max_length=512)]
     accepted: Annotated[list[str], Field(min_length=1, max_length=64)]
     masks: Annotated[list[Digest], Field(min_length=1, max_length=64)]
     padding: Annotated[int, Field(ge=0, le=4096)]
@@ -119,10 +147,17 @@ class DetailerPlan(_Contract):
             raise ValueError("detailer accepted regions and masks must correspond one to one")
         if not set(self.accepted) <= set(ids):
             raise ValueError("an accepted detail region is missing from the detection")
-        if any(region.detector not in detector_ids for region in self.candidates):
+        edited = any(isinstance(region, (DrawnRegion, CorrectedRegion)) for region in self.candidates)
+        if edited != (self.version == "detailer-v2"):
+            raise ValueError("user-edited detailer regions require the detailer-v2 format")
+        if any(isinstance(region, Region) and region.detector not in detector_ids for region in self.candidates):
             raise ValueError("a detail region names an unknown detector")
-        if any(region.box[2] > self.source.width or region.box[3] > self.source.height for region in self.candidates):
+        if any(not in_source(region.box, self.source.width, self.source.height) for region in self.candidates):
             raise ValueError("a detail region lies outside its original source")
+        if any(isinstance(region, CorrectedRegion) and (
+            region.box == region.detected_box or not in_source(region.detected_box, self.source.width, self.source.height)
+        ) for region in self.candidates):
+            raise ValueError("a corrected region needs different, valid original detection bounds")
         accepted = self.accepted_regions
         if accepted != sorted(accepted, key=region_order):
             raise ValueError("accepted detail regions must follow their displayed canonical order")
@@ -131,7 +166,7 @@ class DetailerPlan(_Contract):
         return self
 
     @property
-    def accepted_regions(self) -> list[Region]:
+    def accepted_regions(self) -> list[ReviewRegion]:
         by_id = {region.id: region for region in self.candidates}
         return [by_id[region_id] for region_id in self.accepted]
 
@@ -226,13 +261,13 @@ def overlap(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float
     return intersection / union if union else 0.0
 
 
-def mask_box(width: int, height: int, region: Region, padding: int) -> tuple[int, int, int, int]:
+def mask_box(width: int, height: int, region: ReviewRegion, padding: int) -> tuple[int, int, int, int]:
     """The exact clipped nonzero extent of a box-feather-v1 mask."""
     x1, y1, x2, y2 = region.box
     return max(0, x1 - padding), max(0, y1 - padding), min(width, x2 + padding), min(height, y2 + padding)
 
 
-def region_mask(width: int, height: int, region: Region, padding: int, feather: int) -> Image.Image:
+def region_mask(width: int, height: int, region: ReviewRegion, padding: int, feather: int) -> Image.Image:
     """Frozen box-feather-v1: clip padded box, then integer inward ramp.
 
     Pillow draws integer rectangles only; no decoder/blur rounding is involved.

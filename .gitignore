@@ -40,6 +40,8 @@ auradream.bundle-leases.json
 auradream.snippets.json
 .auradream.snippets.*.tmp
 auradream.presets.json
+auradream.tags.json
+.auradream.tags.*.tmp
 .auradream.presets.*.tmp
 auradream.saved-searches-*.json
 .auradream.saved-searches.*.tmp

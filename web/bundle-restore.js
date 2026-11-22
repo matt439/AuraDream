@@ -4,7 +4,7 @@
 const BUNDLE_RESTORE_PATH = BUNDLE_BROWSE_PATH + '/restore';
 const BUNDLE_DEPENDENCY_ROLES = {
   reference: 'Reference', refine: 'Refine source', edit: 'Instruction edit source',
-  detailer: 'Detailer source', tiled_refine: 'Tiled Refine source', mask: 'Mask',
+  detailer: 'Detailer source', tiled_refine: 'Tiled Refine source', controlnet: 'ControlNet guide', mask: 'Mask',
 };
 
 function syncBundleRestoreControls(hold = bundleActionHold()) {

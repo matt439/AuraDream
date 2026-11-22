@@ -318,6 +318,10 @@ paragraphs, never rewording.
   means unchecked, never invalid - except an item longer than any tag
   (`TAG_NAME_MAX`, 200), answered unknown without the index, reachable or
   not
+- `backend/tag_snapshot.py` — an explicitly downloaded, dated Danbooru
+  vocabulary, persisted atomically beside the gallery. Prefix and substring
+  suggestions and exact validation use its canonical names, active aliases
+  and categories when offline lookup is selected.
 
 ### Backend: passes, backends and the grid
 
@@ -356,6 +360,17 @@ paragraphs, never rewording.
   stored limits are independent of current request ceilings.
 - `backend/detailer_admission.py` — bounded gallery-only RGB decode and source
   proof for a detailer's preview and queue admission; no model loading.
+- `backend/spatial_conditioning.py` — versioned regional prompt and
+  ControlNet request shapes, stable cell identity, and SQL/PNG agreement.
+- `backend/spatial_admission.py` — common spatial recipe checks before
+  queueing a cell. `backend/controlnet_contract.py` pins the two weight
+  revisions and the guide proof. `backend/controlnet_admission.py` proves
+  the guide's original RGB pixels before queueing and again at render time.
+- `backend/backends/regional_prompts.py` — SDXL cross-attention for local
+  prompts, with the original attention processors restored after each call.
+- `backend/backends/controlnet_runner.py` — checks the pinned config and
+  weights, borrows the loaded SDXL components and cleans up its separate
+  model-offload hook.
 - `backend/detailer_detectors.py` — cold detector status, explicit pinned asset
   preparation and lazy CPU-only anime/photographic face and hand detectors.
 - `backend/detailer_hands.py` — the OpenCV Zoo palm/hand ONNX preprocessing,
@@ -518,6 +533,9 @@ paragraphs, never rewording.
   a load's RAM/paging-file failures; standard library only, so `prompt_check` and `tag_lookup` need
   not import the queue for it (`jobs` re-exports it for every other caller)
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/gallery_import.py` — bounded decoding of user-supplied photos
+  and sketches, normalizes their pixels and sends them through the gallery
+  writer as imported sources.
 - `backend/record_fields.py` — the pure field codecs rows and PNG chunks
   share: the chunk's mask, upscaler, batch and peak sanitisers and
   `peak_chunk`, `mask_hash` and `mask_provenance`, the mask decoders
@@ -976,7 +994,7 @@ paragraphs, never rewording.
 
 ### The page (`web/`)
 
-- `web/` - served as-is from `/static`; `index.html` loads 87 classic
+- `web/` - served as-is from `/static`; `index.html` loads 92 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -1000,13 +1018,15 @@ paragraphs, never rewording.
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
   stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, `sourceGoneKind`/`sourceGoneWords`, a gone source's words, and what the pass dialogs share: `stepStrength`, `dropPassLora` and `PASS_IN_FLIGHT`, and what the inpaint class's dialogs share: `inpaintNone`, `inpaintUnavailableText`, `inpaintLibraryStrength`, `inpaintStartStrength`, `inpaintStrengthNote`, `libraryStrengthInto`, `syncPassSampling`, `maskCropAsked`, `maskCropText`, `INPAINT_FAMILIES`, `MASK_CROP_*`), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
-  upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
+  upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas,
+  Fit/1:1/pan transform, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
   `instruction-edit.js` Edit by instruction… (the capability, the menu item, the
   dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
   `detailer.js` the single-image face/hand detector status, explicit download,
-  candidate review, overlay boxes and ordered inpaint submission (`styles/detailer.css`);
+  candidate review, overlay boxes and ordered inpaint submission (`styles/detailer.css`).
+  `detailer-drawing.js` edits one pending box through pointer or keyboard input;
   `prompt-note.js` the note under the prompt and its Undo (`showPromptNote`, `promptUndo`); `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-lists.js` the editors' suggestion lists and the negative box's, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler; its button's
@@ -1024,6 +1044,8 @@ paragraphs, never rewording.
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection and retiring state prepared under the old model;
+  `regional-prompts.js` the region editor and saved recipe restore,
+  `controlnet.js` the guide selector and ControlNet recipe,
   `execution.js` owns inspectable unavailable performance choices, composer
   cache intent and shared execution holds;
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
@@ -1048,7 +1070,10 @@ paragraphs, never rewording.
   an offline credential profile or shared mode, or the page was opened
   with `?automatic-backup`, and while hidden it reads that status once
   per opening and never on polls);
-  `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a
+  `gallery-select.js` the picked cards and the Picked menu,
+  `blind-compare.js` matched-seed pairing, randomized A/B review and results,
+  `gallery-import.js` the gallery image picker and dialog drop/paste,
+  `gallery-batch.js` a
   card's batch outlined on hover, `tag-swap.js` Swap tags,
   `refine-tiled.js` the Refine method choice, tiled source admission and
   fixed-recipe request, `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
@@ -1159,9 +1184,11 @@ paragraphs, never rewording.
   old place in `style.css`), `fields.css` the panel's fields,
   `analysis.css` the prompt check, critic and comparison,
   `prompt-assistant.css` the writing assistant's sidebar and drafts, `generation.css`
-  the grid search, the buttons and progress, `gallery.css` the stage and
-  Gallery beside, `sheet.css` the contact sheet, `lightbox.css` the
-  lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
+  the grid search, the buttons and progress, `regional-prompts.css` the
+  region editor, `gallery.css` the stage and
+  Gallery beside and image import, `sheet.css` the contact sheet,
+  `lightbox.css` the lightbox, `blind-compare.css` the blind comparison review,
+  `refine.css` the Refine dialog and motion, `inpaint.css` and
   `outpaint.css` their dialogs, `instruction-edit.css` the Edit by
   instruction dialog and an edit's badge, `detailer.css` the face/hand region
   review and overlay, `bundles.css` the bundle dialog,
@@ -3258,6 +3285,12 @@ measured on the card and when.
   and intermediate images only when selected too; masks/provenance alone
   cannot restore an absent source chain. No card anatomy/identity or
   small-region improvement is established by these CPU/browser checks.
+- A manually drawn Detailer box can start a review without detection.
+  The server calculates padding, order and masks from the final
+  rectangles. Corrections retain both original and final bounds.
+  An edit replaces the review receipt. The versioned plan records each
+  rectangle's origin, and detector-only records retain their earlier
+  format and identity.
 #### Loader and prompt variant reproduction
 
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
@@ -3698,16 +3731,23 @@ measured on the card and when.
   chunk's: a PNG-only reindex, and an older build importing a newer bundle,
   bring binned images back live, as a PNG-only reindex loses a star;
   `reindex --database` carries `binned_at`.
-- Any tracked Tiled Refine result makes an export version 3. Otherwise,
-  instruction edits make it version 2 and the rest use version 1. Import
-  requires Tiled Refine in version 3 and refuses it in versions 1 and 2.
-  Version 1 also refuses edits. Tiled results need matching SQL and PNG intent.
+- Spatial conditioning requires bundle version 4. An export without it
+  uses version 3 for Tiled Refine, version 2 for instruction edits and
+  version 1 otherwise. An older version refuses records from a newer
+  recipe. Versions 3 and 4 require at least one record of the type that
+  raises the version. Tiled results need matching SQL and PNG intent.
   Merge remaps its source only after the included root matches the filename,
   original dimensions, full RGB digest and the digest of the frozen Lanczos
   canvas. An existing destination root must also match its gallery row.
   An omitted or unproven root is counted and becomes `source: null`,
   with both proofs retained in the row and rewritten PNG. Repeat imports keep
   the local row and compare the recipe and both proofs without the numeric id.
+- A spatial result needs matching versioned intent in SQL and PNG.
+  Regional prompts carry their rectangles, text and method. ControlNet
+  carries the guide's full RGB proof, mode, pinned revision and scale.
+  Import and reindex remap a guide ID only after proof, otherwise keeping
+  the intent and refusing replay until its guide is resolved. Selective
+  archive restore offers the guide as an image dependency.
 - Every archive is read once: `bundle_archive._verify_archive` checks CRC, manifest SHA-256
   and (encrypted) every chunk tag, and tracked PNGs are decoded from the bytes
   it just read on the bounded decode pool, which also hashes them; errors are
@@ -5639,14 +5679,17 @@ measured on the card and when.
   list selection without blocking name edits; successful Reload clears only
   visible selection, preserving the editor until deliberate selection. View
   toggles retain that visible selection or deliberate blank. Selection during
-  validation still cancels the older check. Save names omitted
-  active LoRA/reference/Then refine inputs as a hold. Restore requires the
+  validation still cancels the older check. Save names omitted active
+  LoRA and reference inputs as a hold. A Generate setup can retain the
+  scale, strength and nullable steps of its Then refine stage. Grid setups
+  hold while Then refine is active. Restore requires the
   exact checkpoint, offers Models on a mismatch, and validates afresh before
   writing. Its reply must still match item/model revisions, the entire draft,
   performance intent and the edit epoch; otherwise a new press is needed.
   It closes the modal before undo-aware writes, uses `setReferences`, clears
-  conditioning and Then refine, and keeps raw inactive text/overrides. Its
-  summary shows saved/effective settings and what will clear. Grid restores
+  conditioning, and keeps raw inactive text/overrides. Its summary shows
+  saved/effective settings and what will clear. Restore applies the saved
+  Then refine stage, or turns it off for a setup with no second stage. Grid restores
   Resume off and retains its ordinary seed-axis and request Repeat=1 rules.
   The one whole-draft Undo keeps raw sampling/ownership, grid, conditioning,
   Then refine and translation; first later edits retire it through panel and
@@ -6390,7 +6433,7 @@ measured on the card and when.
   does not parse is skipped. The page posts only `{name, chunks}`. Load settings
   from PNG never stores the image or makes it a reference.
   [Photo and sketch import](maintainer/plan-workstation-features.md#photo-and-sketch-import)
-  has its own planned gallery action. A keyword the server does not read (anything but
+  uses its own Gallery action. A keyword the server does not read (anything but
   `auradream`, `local-diffusion`, `krea`, `parameters`, `workflow`,
   `prompt`) goes by
   its name with empty text, so an XMP packet beside a settings block does
@@ -11079,6 +11122,10 @@ waiting for the bind on an ephemeral port, with `webbrowser.open` replaced;
 `POST /api/fake/sign-in` a fresh visit's `token` and `unsourced` start, and
 `POST /api/fake/card` (`{total_memory, capability}`, empty for none) the card
 `card_facts` answers, unknown until a smoke claims one;
+`POST /api/fake/regional-prompts` (`{available}`) qualifies the fixture's
+regional prompt editor and requests on the exact Animagine fake;
+`POST /api/fake/controlnet` qualifies the fixture's pose and depth recipes,
+including the guide preview and Generate/Reuse/Undo on the Animagine fake;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
 no category for an unmatched setup or a first run on a busy PC;
 `test_gallery_timing.py` covers the picker's gallery timing (refine, edit,
@@ -11863,6 +11910,11 @@ uv run python tools/fake_server.py --port 7909 --model cagliostrolab/animagine-x
 node tools/browser.mjs tools/smoke-tag-finder.json
 ```
 
+The same smoke installs a fake dated tag snapshot and verifies offline
+suggestions, an alias, a dated miss in chips and Check, and the switch
+back to live lookup. `tests/test_tag_snapshot.py` covers cold reopening
+and preserving the previous snapshot when refresh fails.
+
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on
 7874: the CLIP cut, the negation and quote findings with their sources, span
 and cut selection (an emoji ahead of them included) with the selection
@@ -12172,6 +12224,13 @@ after opening another source. It removes the fake server's adapter file after
 review, checks listed and unrelated refusals, and verifies that an explicit
 retry submits the same region and recipe without the removed adapter.
 Detection quality and diffusion improvement remain separate real-data/card checks.
+The editable review uses a native mouse drag, a coarse-pointer touch drag
+and cancel, and keyboard correction and reset. The browser also checks
+manual review without a detection result and exact source-coordinate bounds.
+
+The Inpaint smoke also checks a 1536-square mask at 1:1, mouse and
+keyboard pan, source-coordinate strokes, erasing and Undo. At emulated
+phone DPR 3, Pan moves the image without changing the mask.
 
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
 7875, whose refine cells are the source image under a stamp: no refine
@@ -13306,6 +13365,11 @@ uv run python tools/fake_server.py --port 7904 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-png-settings.json
 ```
 
+It also checks Gallery Import through the picker, dialog drop and paste,
+and the phone gallery menu. Imported sources can open Refine.
+`tests/test_gallery_import.py` covers the upload bounds, reference and
+Refine replay, normalized RGB, reindex and selective archive restore.
+
 `tests/test_use_prompt.py` runs reuse.js's actual `usePrompt` on inert
 boxes under Node: the write order, a box left alone where it holds the
 text, what the Undo gives back, the lightbox closed first, an instruction
@@ -13987,6 +14051,9 @@ performance, stale item edits and draft/model validation replies, the foreign
 checkpoint hold and Models opener, ordinary grid preview/submission, modal
 keys/focus, page errors and geometry at 1400x900 and 400x650. It uses scratch
 gallery data and synthetic conditioning; no real weights or card run is involved.
+It also saves and restores a two-stage Generate recipe with native controls,
+submits its restored settings and checks Undo. `smoke-setup-portability.json`
+imports its version 2 representation, exports it and previews the exact bytes.
 
 `smoke-setup-list-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
 7938 for native saved-setup list recovery. The final regression covers held

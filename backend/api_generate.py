@@ -7,8 +7,9 @@ from types import SimpleNamespace
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, grid_budgets, mask_crop, submission, then_refine, tiled_refine_admission
+from . import controlnet_admission, gallery_reports, grid, grid_budgets, mask_crop, submission, then_refine, tiled_refine_admission
 from .app_context import AppServices
+from .controlnet_contract import ControlNetPreview
 from .detached import detached
 from .execution import require_configured_loader_available
 from .model_selection import current_settings
@@ -52,6 +53,8 @@ async def expand_grid(
     "already done" is the gallery's.
     """
     selected = current_settings(services.settings())
+    if request.spatial_conditioning is not None:
+        raise HTTPException(status_code=422, detail="Use Generate for spatial conditioning.")
     if request.tiled_refine is not None:
         raise HTTPException(status_code=422, detail="Use the Tiled Refine dialog or Generate for this fixed recipe. "
                                                    "Run grid and its preview do not support Tiled Refine.")
@@ -133,6 +136,17 @@ def create_router(services: AppServices) -> APIRouter:
     """The routes, reading the app's state through `services` per request."""
     router = APIRouter()
 
+    @router.post("/api/controlnet/preview")
+    async def preview_controlnet(request: ControlNetPreview) -> dict:
+        def prepare() -> dict:
+            controlnet_admission.require_loader(services.backend(), current_settings(services.settings()), request.mode)
+            return {"spatial_conditioning": controlnet_admission.preview(request)}
+
+        try:
+            return await asyncio.to_thread(prepare)
+        except ValueError as exc:
+            raise refusal(422, error_detail(exc), exc) from exc
+
     @router.post("/api/tiled-refine/preview")
     async def preview_tiled_refine(request: TiledRefinePreview) -> dict:
         """The fixed plan and its current hold, with proof for a reused source."""
@@ -171,7 +185,7 @@ def create_router(services: AppServices) -> APIRouter:
         try:
             job = await services.jobs().submit(request, then_refine=spec)
         except ValueError as exc:
-            if request.tiled_refine is None:
+            if request.tiled_refine is None and request.spatial_conditioning is None:
                 raise
             raise refusal(422, error_detail(exc), exc) from exc
         return JobAccepted.of(job)

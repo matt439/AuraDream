@@ -454,11 +454,13 @@ loading that checkpoint remain separate actions.
 
 Setups retain exact Prompt/Negative text, size, profile defaults or explicit
 sampling overrides, a random or fixed Seed, Batch/Repeat, and an unexpanded
-grid definition. A restored grid leaves Resume off and uses its seed axis;
-request Repeat is 1. Save holds when LoRA, references or Then refine would be
-omitted. Restore clears conditioning and turns Then refine off, as its preview
-says. Version 1 requires Eager, native attention and Step cache Off; a held or
-invalid performance choice stays intact when Save or Restore refuses it.
+grid definition. Generate setups can also save **Then refine**, including
+its scale, strength and whether its steps follow Generate. The preview shows
+both stages before Restore. A saved grid leaves Resume off and uses its seed
+axis with Repeat 1. A setup saved without a second stage restores with Then
+refine off. Save holds when LoRA or references would be omitted. Setups
+require Eager, native attention and Step cache Off. A held or invalid
+performance choice stays intact when Save or Restore refuses it.
 
 Saved setups are shared by tabs on this server and stay through a gallery
 clear. They live in `auradream.presets.json` beside the gallery database,
@@ -555,13 +557,18 @@ stand anywhere among the tags, as its card allows, and is never moved by
 **Use reordered**; an `@` artist goes in the Artist step. Recheck after
 editing.
 
-Tag suggestions and relevant checks query Danbooru's index with tag text;
-on Anima, a prose prompt's comma clauses (never a whole sentence) are sent
-too, since its order and artist checks read them.
-Images and generation settings are not sent. Network failures leave tags
-unchecked, and tag advice never blocks generation. Ordinary prompt checking
-and the critic run locally. Prompt weighting syntax such as `(word:1.2)`
-is literal text here, not a weighting control.
+Live tag suggestions and relevant checks query Danbooru with tag text.
+On Anima, the lookup uses comma clauses because its order and artist checks
+read them. Images and generation settings stay on the server. In the Tags
+menu you can download a dated index for autocomplete and checking without
+the network. It includes up to 10,000 commonly used tags, their active
+aliases and categories. A missing term is marked absent from that snapshot.
+You can refresh the snapshot or return to live lookup. The checkpoint's
+own tag guidance remains available in both modes.
+
+Network failures leave live tags unchecked. Tag advice never blocks
+generation. Ordinary prompt checking and the critic run locally.
+Prompt weighting syntax such as `(word:1.2)` is literal text here.
 
 **Suggest improvements** under **Check → Prompt improvements** uses local Qwen3-4B through llama.cpp to suggest issues,
 a rewrite and sometimes a reordering, citing the supplied author sources.
@@ -695,7 +702,16 @@ was measured on Klein at fp8 and int8 and on Klein Base at fp8; at bf16 the card
 guard stopped Klein's near the 16 GB card's limit, so use fp8 or int8 for references). Add them with
 the card's **Reference** button or `--reference 12,15` in the CLI. Their order
 defines “image 1”, “image 2” in the prompt; drag chips or use Alt+Left/Right
-to reorder them. Reference import from personal files is not implemented.
+to reorder them.
+
+Choose **Gallery → Import…** to bring in a photo or sketch. Choose a PNG,
+JPEG or WebP file, or drop or paste one into the dialog, then press
+**Import**. A still image can be up to 32 MiB and 32 megapixels. The gallery
+keeps its orientation and displays transparent areas on white. Use it with
+**Reference** or **Refine** on a checkpoint that supports the action.
+**Load settings from PNG…** remains available for copying prompt and sampling
+settings from an image's metadata.
+
 Deleted references are removed after verification; submit again to run
 without them. An image in the recycle bin cannot be used as a reference or
 a refine source until it is restored.
@@ -707,6 +723,30 @@ unchecked. LoRAs are unavailable with Nunchaku and on the checkpoints whose
 pipeline is the app's own (the Anima variants, NewBie and FLUX 3 [Klein]);
 [the capability table](#what-each-checkpoint-can-do) lists every checkpoint.
 The app records references, adapter and weight for Reuse and Resume.
+
+## Guide pose, depth and regions
+
+On Animagine XL 4.0, **ControlNet** uses a prepared 1024×1024 pose or depth
+map. Import the map into the gallery if needed, choose the guide type,
+enter the guide's gallery ID and press **Preview guide**. Check the
+picture, set **Strength** and press **Generate**. The pose mode uses an
+OpenPose-style skeleton map. The depth mode uses a grayscale depth map.
+Choose a map you already have. A first render may download about 2.5 GB
+for pose or 320 MB for depth. The render records the guide's pixel proof,
+weight revision and strength. Keep the guide when backing up a render
+you intend to replay.
+
+**Region prompts** applies local text inside rectangles. Write the
+whole-image prompt in the Prompt box, then add up to three rectangles
+using percentage coordinates. Each region uses the whole-image prompt
+and its own text. Where rectangles overlap, AuraDream averages their
+attention contributions. Use **Reuse** on a result to restore the layout
+and local prompts.
+
+Both controls use the measured RTX 5080 Windows recipe with Animagine XL
+4.0, FP8, model offload, Eager, Native, a square 1024×1024 canvas, Batch 1,
+28 steps and CFG 5. They apply to direct Generate and can be used one at
+a time. [Card measurements](verified.md#spatial-guidance-on-animagine-xl-40)
 
 ## Refine an existing image
 
@@ -830,6 +870,10 @@ Ctrl+Z and Ctrl+Shift+Z/Ctrl+Y undo and redo, and the arrow keys move the
 brush with Space painting. These keys act only while the picture has focus,
 so typing in the prompt never paints. **Feather** softens the mask's edge;
 **Show mask** hides the overlay. **Clear** empties the mask, and Undo brings it back.
+Choose **1:1** for actual pixels and **Pan** to move around the source
+without adding a stroke. Return to **Brush** or **Eraser** to edit the mask.
+**Fit** shows the whole image again. With focus on the picture, press
+`0` for Fit, `1` for actual pixels or `H` for Pan.
 
 The dialog starts from the source's prompt, seed and sampling settings, with
 **Strength**, **Versions** and **Seed** working as in Refine; the prompt and
@@ -899,10 +943,11 @@ download changed or corrupt files again, within the stated size bound.
 Review the numbered mask areas and the matching checkbox list. Each area
 includes the detector's box plus its padding, with feathering inside the
 marked boundary. Untick false
-positives or regions you want to keep. The server fixes the order shown;
-overlapping regions are kept separate, and later passes see earlier edits.
-No detections, or no regions selected, queues nothing. A detector only finds
-a region: it does not decide that anatomy is wrong or promise an improvement.
+positives or regions you want to keep. Draw a box for a missed face or hand,
+or adjust a detected box before queueing. You can draw boxes even when the
+detector finds nothing. The server fixes the order shown. Overlapping
+regions are kept separate, and later passes see earlier edits. The detector
+finds candidate regions for you to review.
 The detector's confidence is not an image-quality score.
 
 **Prompt and sampling for these passes** opens the source's prompt pair.
@@ -919,8 +964,9 @@ Skip and automatic Finish are unavailable for a dependent detail chain;
 open **Detail faces/hands…** on an image for a new review. A changed source,
 checkpoint or expired review needs fresh detection before Queue.
 
-Each saved pass keeps its source, mask and detail settings in its gallery
-record and PNG. Rerunning an individual pass uses those saved inputs without
+Each saved pass keeps its source, mask, final box and detail settings in its
+gallery record and PNG, including whether you drew or adjusted the box.
+Rerunning an individual pass uses those saved inputs without
 redetection. A picked or starred bundle includes source images and
 intermediate passes only if you select those too; its masks and detail
 settings travel, but an omitted source prevents replay.
@@ -1238,6 +1284,13 @@ checkpoints or pixel sizes may differ. The first picked image stays left;
 Swipe/Side by side, zoom, divider keys and arrows work on the pair. Labels
 show recorded settings that differ and prompt changes. Refine and Cancel
 restore the pair unless a member was binned/deleted in the meantime.
+
+**Picked → Blind comparison…** opens a shuffled A/B pair with the prompts
+and settings hidden. For two variants rendered across seeds, pick the
+results or open their contact sheet and choose **Blind comparison…**.
+AuraDream pairs by exact seed and lists unmatched seeds. Zoom and pan both
+images together, choose A, B or Tie, then **Reveal** to read the settings
+and preference totals.
 
 **Picked → Seeds to grid**
 opens the grid and fills its Seed list with distinct picked seeds, in picked

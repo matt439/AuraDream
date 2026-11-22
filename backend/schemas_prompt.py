@@ -146,6 +146,7 @@ class PromptAnalysis(BaseModel):
     # tag was checked for an artist name (Anima's @ rule reads a category).
     # None when every item was looked up, or none needed to be.
     categories_detail: str | None = None
+    tag_snapshot_date: str | None = None
     # Why the order was only partly checked: which items the order rule
     # reads it could not place where that decides the order - each keeps
     # every slot a category could give it, some out of order beside another
@@ -280,6 +281,7 @@ class TagSuggestionResponse(BaseModel):
     available: bool
     suggestions: list[TagSuggestion] = Field(default_factory=list)
     detail: str | None = None
+    snapshot_date: str | None = None
 
 
 class TagDescription(TagSuggestion):
@@ -376,6 +378,7 @@ class TagValidationResponse(BaseModel):
     available: bool
     results: list[TagValidationItem] = Field(default_factory=list)
     detail: str | None = None
+    snapshot_date: str | None = None
     # Whole matching prompt context, on explicitly hybrid guides only.
     # Lexical results above remain strict and independently cacheable.
     parts: list[PromptPart] | None = None

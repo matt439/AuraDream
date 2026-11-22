@@ -445,9 +445,8 @@ def keep_rates(
         raise ValueError(f"cannot group by {', '.join(unknown)}; one of {', '.join(_GROUPS)}")
     columns = list(dict.fromkeys([*by, "size"]))
     where, params = strict_scope(search)
-    # The recycle bin is a rejection the table has no column for; a binned
-    # image is neither made nor starred here.
-    where.append(storage._LIVE)
+    # A binned image or an imported source is neither made nor starred here.
+    where.extend((storage._LIVE, "imported_name IS NULL"))
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     select = ", ".join(f"{_GROUPS[name]} AS {name}" for name in columns)
     group = ", ".join(_GROUPS[name] for name in columns)

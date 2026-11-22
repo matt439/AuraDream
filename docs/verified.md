@@ -3685,6 +3685,56 @@ pass: matched cold/warm projections were 15,198/15,202 MiB, the warm value
 records the prior-stage proof and preserved harness correction.
 
 
+## Spatial guidance on Animagine XL 4.0
+
+2026-11-22. Windows, RTX 5080 CUDA 0, Diffusers 0.42.1, Animagine XL 4.0
+at revision `2b7c1b397761bf5bd3cc42e5b39ec99314a75a96`, FP8/model
+offload, Eager/Native, 1024×1024, batch one, 28 steps, CFG 5, fixed seed
+7291042. One cached base load per session. The independent Windows
+guard held the 15,500 MiB card ceiling, shared-memory rise limits of
+1,024 MiB for the adapter and 512 MiB for the process tree, 24 GiB cold
+RAM and commit admission, 4 GiB live floors, and 16 GiB RSS/private caps.
+
+**Regional prompts.** The public API swapped the colors of red and blue
+coats between the left and right halves while also changing the pose and
+placement of the subjects. The original regional input repeated exactly,
+with RGB SHA-256 `a97ede8775135016a246c14160c24816a39129fa3bc82dbb18b4ff47c12d28fd`.
+Three regions also completed. The plain render after the region calls
+matched the plain render before them. Regional calls took 9.9–10.8 s
+including job and image save. Session peaks were **5,401 MiB** on the
+whole card, **8.94 GiB** process-tree RSS and **10.43 GiB** private
+commit. Minimum free host RAM and commit were 26.53 and 24.63 GiB.
+The guard observed the unload. Receipts and fixed inputs are in
+`work/workstation-regional-public-a1` and `work/workstation-card-trial.py`.
+
+**ControlNet.** At strength 0.8 a synthetic OpenPose skeleton raised one
+arm, extended the other and widened the subject's stance. A separate
+synthetic depth map made three boxes in the planned depth order. The
+unguided renders at the same seed had both arms lowered and a single
+dominant box, respectively. The weight and config checks pinned
+[Xinsir pose](https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0/tree/23f966cd5cfdd3f7729c903e243d87152162d2b7)
+and [Diffusers depth small](https://huggingface.co/diffusers/controlnet-depth-sdxl-1.0-small/tree/daf3835d036574dff7c158882e8e77b75b024ee5).
+
+| Mode | Unguided job | Guided and replay | Guided peak card | Guided peak private | Replay RGB hash prefix |
+| --- | --- | --- | --- | --- | --- |
+| Depth | 9.61 s | 10.00 / 9.68 s | 6,445 MiB | 10.37 GiB | `a04e932b5d3e9e73` |
+| Pose | 8.58 s | 18.91 / 18.85 s | 9,536 MiB | 12.67 GiB | `a88905fa156e65ad` |
+
+The initial trial stopped at 16.05 GiB private commit during pose replay.
+Removing the temporary offload hook and discarding that model's tensors
+directly removed a redundant GPU-to-CPU copy. The repeat completed both
+replays under the unchanged guard. Peak process-tree RSS was 10.09 GiB.
+Minimum free host RAM and commit were 28.48 and 31.33 GiB. The later
+unguided pose result matched the earlier RGB, and the guard observed
+unload. The runtime checks for 10 GiB free VRAM, 12 GiB free RAM and
+13 GiB free Windows commit before starting ControlNet. Receipts are in
+`work/workstation-controlnet-card-a1` and `work/workstation-controlnet-card-a2`.
+The public API repeat imported both guides through Gallery Import, loaded
+the same base revision and matched all four plain/guided RGB hashes.
+With that idle baseline it peaked at 7,809 MiB whole-card, 10.19 GiB
+process-tree RSS and 13.09 GiB private commit. It unloaded and stopped
+under the same guard. Receipt `work/workstation-controlnet-public-a1`.
+
 ## RTX 3070 (8 GB), native Ubuntu (2026-11-03)
 
 The native Linux route on a second machine: Ubuntu 26.04 LTS (kernel 7.0),

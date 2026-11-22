@@ -11,6 +11,7 @@ from PIL import Image
 from . import bundle_crypto, bundle_images, bundles, storage
 from .bundle_archive import ArchiveSelection
 from .bundle_common import BrowseUnavailable, BundleError, Progress, _rows
+from .controlnet_contract import ControlNetSpec
 from .metadata import detailer_from_json, edit_from_json, tiled_refine_from_json
 from .refusal_codes import CodedError
 
@@ -41,6 +42,10 @@ class RestoreCatalogue:
             detail = detailer_from_json(row.get("detailer"))
             assert detail is not None
             proof = detail.plan.source
+        elif role == "controlnet":
+            condition = bundle_images._conditioning(row)
+            assert isinstance(condition, ControlNetSpec)
+            proof = condition.guide
         else:
             tiled = tiled_refine_from_json(row.get("tiled_refine"))
             assert tiled is not None

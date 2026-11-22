@@ -2015,22 +2015,16 @@ from the one asked for, and the record would be honest about it but the
 press not. Re-reading the list on focus would also pick up files dropped in,
 but would rebuild the options under an opening select; not done.
 
-**Bringing in a picture of one's own is not built.** The review's U61 is
-titled for it: klein's main use is editing an outside photo, and references
-come only from the gallery, through a card's ❐. Its part A is in - the edit
-Example says it needs a reference image, Check notes an edit prompt with none
-attached, and a file dropped on the page no longer navigates away - and part
-B, an upload route that makes a gallery row and hands back its id with Add
-image, drop and paste on the field, was deferred on 2026-10-05. Matt reopened
-[photo and sketch import](maintainer/plan-workstation-features.md#photo-and-sketch-import)
-on 2026-11-21 (`GEN#8`). Import also needs storage changes. A row's prompt,
-steps, CFG, seed and model are NOT NULL and the reindex drops a PNG whose chunk lacks them, so an import
-needs a source marker in the row and the chunk, through `_migrate`,
-`_COLUMNS`, `index_file` and the merge; the gallery scope, Re-render, Reuse,
-the facts and the estimates would each have to know such a row is no render.
-Generation itself would not change: `storage.reference_paths` resolves any
-row by id and the pipeline opens each reference as a picture. The refine pass
-would get outside sources from the same route.
+The review's U61 first added a required-reference example and a Check note.
+Matt later reopened [photo and sketch import](maintainer/plan-workstation-features.md#photo-and-sketch-import)
+as `GEN#8`. Gallery import creates a source row with its own ID. Its
+SQL row and normalized PNG carry the original display name as an import
+marker. The server applies EXIF orientation, composites transparency on
+white, and drops the original metadata before writing the RGB PNG. The source
+appears in normal gallery browsing across checkpoints and is excluded from
+checkpoint-only render history and the settings sheet. Reference and Refine
+use the same gallery-id paths as generated sources. The imported image
+itself has no sampling settings to reuse or replay.
 
 ## Instruction editing starts with a distinct source contract
 
@@ -3914,8 +3908,8 @@ itself (`pngTextChunks`: tEXt, zTXt through `DecompressionStream`, iTXt)
 and posts only `{name, chunks}`. Uploading the file would have been less
 page code, but it is megabytes the server would hold for nothing, an
 upload path that is not the gallery's, and the first step towards
-"import a photo as a reference" - U61 B, deferred at the time and now
-planned as a separate import action in `GEN#8`. In Load settings from PNG the
+"import a photo as a reference" - U61 B, deferred at the time and built as
+the separate Gallery import action in `GEN#8`. In Load settings from PNG the
 picture is never stored, never in the gallery and never a reference, and
 the route's body is capped at 1 MiB of text (a settings record is a few
 kilobytes; a ComfyUI graph, read only to name it in the refusal, rarely
@@ -9372,8 +9366,11 @@ active axes and held performance choices remain visible refusals.
 
 Restore closes the native modal before writing both boxes through `rewriteBox`.
 It keeps raw negative text even while inactive, restores sampling ownership,
-clears references through `setReferences`, clears LoRA and its grid axis, and
-turns Then refine off. The summary names those changes before the press.
+clears references through `setReferences` and clears LoRA and its grid axis.
+`GEN#75` adds a portable second stage to Generate setups, with scale,
+strength, and inherited or explicit steps. Restore uses the ordinary
+Then refine controls and the summary shows both stages. Setups saved
+without a second stage restore with Then refine off.
 Grid restores its unexpanded variable/axis text and mode, leaves Resume off,
 and lets the ordinary preview/submission apply request Repeat=1. No seed is
 drawn and no work is queued by Restore.

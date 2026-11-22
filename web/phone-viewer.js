@@ -71,7 +71,7 @@ function syncPhoneViewerImage(opening = false) {
   if (!rec) return;
   $('lbp-edit').hidden = !!rec.binned_at;
   const peek = $('lbp-peek');
-  const words = `${rec.prompt.split('\n')[0]} · seed ${rec.seed}`;
+  const words = rec.imported_name ? `Imported · ${rec.imported_name}` : `${rec.prompt.split('\n')[0]} · seed ${rec.seed}`;
   if (peek.textContent !== words) peek.textContent = words;
   if (!isPhone()) return;
   // One word in a fifth of the bar: "Reuse settings" is its title's, and

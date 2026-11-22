@@ -20,6 +20,11 @@ from PIL import Image, ImageFile
 from . import png_settings, storage, tiled_refine_contract
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError
 from .execution import execution_chunk, execution_from_json, execution_key
+from .controlnet_contract import ControlNetSpec
+from .metadata import conditioning_from_info
+from .spatial_conditioning import (
+    SpatialConditioning, conditioning_chunk, conditioning_from_json, conditioning_from_sources, conditioning_key,
+)
 from .instruction_edit import edit_key
 from .detailer import iter_rebuilt_masks, stored_json as detailer_json
 from .metadata import (
@@ -27,6 +32,7 @@ from .metadata import (
     metadata_chunk, require_header_metadata, text_keyword, validate_edit_record,
     detailer_chunk, detailer_from_info, detailer_from_json, validate_detailer_record,
     tiled_refine_chunk, tiled_refine_from_info, tiled_refine_from_sources, tiled_refine_from_json,
+    validate_import_sources_from_info,
 )
 
 
@@ -85,6 +91,8 @@ def _pixels(path: Path | str | IO[bytes], *, name: str | None = None, row: dict 
                 if row is not None:
                     _detailer(row, image.info)
                     _tiled_refine(row, image.info)
+                    validate_import_sources_from_info(row, image.info)
+                    _conditioning(row, image.info)
                 image.load()
                 raw = _raw_digest(image)
                 identity = hashlib.sha256(repr((
@@ -93,6 +101,8 @@ def _pixels(path: Path | str | IO[bytes], *, name: str | None = None, row: dict 
                 )).encode()).hexdigest()
                 # The same digest storage.content_hash takes, without a second pass.
                 rgb = image.mode == "RGB" and "transparency" not in image.info
+                if row is not None and row.get("imported_name") is not None and not rgb:
+                    raise BundleError(f"imported source pixels must be RGB: {name}")
                 if image.mode == "RGB":
                     rgb_hash = raw
                 else:
@@ -164,11 +174,14 @@ def _validate_source_row(row: dict, source, *, name: str | None = None) -> _Pixe
 def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None:
     if (width, height) != (row["width"], row["height"]):
         raise BundleError(f"image dimensions disagree with the database: {row['filename']}")
+    if row.get("imported_name") is not None and row.get("content_hash") != content_hash:
+        raise BundleError(f"imported image pixels disagree with the database: {row['filename']}")
     _references(row)
     _execution(row)
     _edit(row)
     _detailer(row)
     _tiled_refine(row)
+    _conditioning(row)
     refine = row.get("refine")
     if refine is not None and (type(refine) is not int or refine <= 0):
         raise BundleError(f"invalid refine source on image {row['id']}")
@@ -293,12 +306,21 @@ def _portable_tiled_refine(value: str | None) -> dict | None:
     return None if stored is None else stored.model_dump(mode="json", exclude={"source"})
 
 
+def _conditioning(row: dict, info: dict | None = None) -> SpatialConditioning | None:
+    try:
+        return conditioning_from_sources(row, None) if info is None else conditioning_from_info(row, info)
+    except ValueError as exc:
+        raise BundleError(f"invalid spatial conditioning metadata for {row['filename']}: {exc}") from exc
+
+
 def _check_known_record(known: dict, row: dict, execution: str | None, edit: str | None) -> None:
     """Portable identity for a matched filename, independent of remapped links."""
     name = row["filename"]
     for key in ("prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed", "model_id"):
         if known[key] != row[key]:
             raise BundleError(f"different image metadata already uses the filename {name}")
+    if known.get("imported_name") != row.get("imported_name"):
+        raise BundleError(f"different imported image metadata already uses the filename {name}")
     if _execution(known) != execution:
         raise BundleError(f"different execution already uses the filename {name}")
     if _portable_edit(_edit(known)) != _portable_edit(edit):
@@ -307,6 +329,8 @@ def _check_known_record(known: dict, row: dict, execution: str | None, edit: str
         raise BundleError(f"different detailer manifest already uses the filename {name}")
     if _portable_tiled_refine(_tiled_refine(known)) != _portable_tiled_refine(_tiled_refine(row)):
         raise BundleError(f"different Tiled Refine recipe already uses the filename {name}")
+    if conditioning_key(_conditioning(known)) != conditioning_key(_conditioning(row)):
+        raise BundleError(f"different spatial conditioning already uses the filename {name}")
     # A previous subset import may already have dropped both source and crop.
     # Known rows and their original remapped links win on repeat import.
     incoming_anchor = row.get("crop_anchor") if known.get("refine") is not None else None
@@ -324,6 +348,9 @@ def _image_links(row: dict) -> list[tuple[str, int | None]]:
         links.append(("detailer", detail.plan.source_id))
     if (tiled := tiled_refine_from_json(row.get("tiled_refine"))) is not None:
         links.append(("tiled_refine", tiled.source))
+    condition = _conditioning(row)
+    if isinstance(condition, ControlNetSpec):
+        links.append(("controlnet", condition.source))
     return links
 
 
@@ -393,6 +420,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
     region = storage.parse_mask_crop_box(row["mask_crop_box"]) if crop and row.get("mask_crop_box") else None
     return {
         "prompt": row["prompt"], "negative_prompt": row["negative_prompt"],
+        **({"imported_name": row["imported_name"]} if row.get("imported_name") is not None else {}),
         "steps": row["steps"], "guidance_scale": row["guidance_scale"], "true_cfg": row["true_cfg"],
         "mu": row["mu"], "seed": row["seed"], "model": row["model_id"],
         "quantization": row["quantization"], "job": row["job_id"], "run": row["run_id"],
@@ -420,6 +448,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         **edit_chunk(edit_from_json(row.get("edit"))),
         **detailer_chunk(detailer_from_json(row.get("detailer"))),
         **tiled_refine_chunk(tiled_refine_from_json(row.get("tiled_refine"))),
+        **conditioning_chunk(conditioning_from_json(row.get("spatial_conditioning"))),
         **storage.peak_chunk(row),
     }
 

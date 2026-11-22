@@ -312,7 +312,7 @@
     "expect": "__suPreviewPosts===__suBeforePreviews && __suHeld('setup-import-run')"
   },
   {
-    "eval": "__suFile(JSON.stringify({format:'auradream.generation-presets',version:2,items:[]}));"
+    "eval": "__suFile(JSON.stringify({format:'auradream.generation-presets',version:3,items:[]}));"
   },
   {
     "expect": "__until(()=>__su('dialog').open && !setupImportBusy && !setupImportShown && __su('status').textContent.length>0)"
@@ -685,9 +685,6 @@
     "expect": "__until(async()=>{await new Promise(r=>setTimeout(r,300));return __suExportBlobs.length===2 && !setupExportPending && !els.setupsStatus.textContent.includes('downloaded');})"
   },
   {
-    "eval": "URL.createObjectURL=__suCreateURL;HTMLAnchorElement.prototype.click=__suAnchorClick;"
-  },
-  {
     "log": "\"Final: no model, queue or generation call; no page error; the composer and Undo are unchanged; canceled files were never saved.\""
   },
   {
@@ -695,6 +692,55 @@
   },
   {
     "expect": "__until(async()=>{const saved=(await __suRead()).items;return saved.length===14&&!saved.some(item=>['Old late preview','Current preview'].includes(item.name))&&saved.filter(item=>item.name==='Uncertain copy').length===1;})"
+  },
+  {
+    "log": "\"A version 2 file can add a two-stage recipe, export that recipe with both stages and re-import the exact bytes.\""
+  },
+  {
+    "eval": "window.__suRecipe={scale:1.25,strength:0.4,steps:null};const recipe=__suItem('Two-stage study',__suFLUX,__suPayload('Forest at night',{width:512,height:512,steps:12,then_refine:__suRecipe}));__suFile(JSON.stringify({...__suDoc([recipe]),version:2}));"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.rows[0]?.preset.name==='Two-stage study' && setupImportShown.can_import)",
+    "fatal": true
+  },
+  {
+    "expect": "__suRow(0).textContent.includes('Generate + Then refine') && __suRow(0).querySelector('[data-role=incoming-payload]').textContent.includes('Then refine · 1.25× · Strength 0.4 · Steps inherited from Generate')"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && setupsItems.some(item=>item.name==='Two-stage study') && !setupExportPending)",
+    "fatal": true
+  },
+  {
+    "click": "#setups-export"
+  },
+  {
+    "expect": "__until(()=>__suExportBlobs.length===3 && !setupExportPending)",
+    "fatal": true
+  },
+  {
+    "eval": "(async()=>{window.__suRecipeRaw=await __suExportBlobs[2].text();return true;})()"
+  },
+  {
+    "expect": "(() => {const file=JSON.parse(__suRecipeRaw);return file.version===2 && __suSame(file.items.find(item=>item.name==='Two-stage study').payload.then_refine,__suRecipe) && !Object.hasOwn(file.items[0].payload,'then_refine');})()"
+  },
+  {
+    "eval": "__suFile(__suRecipeRaw);"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.skip_count===15 && !setupImportShown.can_import && setupImportShown.rows.at(-1).exact_ids.length===1)",
+    "fatal": true
+  },
+  {
+    "click": "#setup-import-close"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && __suForbidden.length===0 && __suErrors.length===0 && setupComposerState()===__suComposer && setupsUndo===__suUndo)"
+  },
+  {
+    "eval": "URL.createObjectURL=__suCreateURL;HTMLAnchorElement.prototype.click=__suAnchorClick;"
   },
   {
     "key": "Escape"

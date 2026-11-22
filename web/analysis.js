@@ -190,6 +190,9 @@ function renderAnalysis(reveal = true) {
     els.analysisFindings.appendChild(note(
       `${noArtists ? 'No tag was checked' : 'Not every tag was checked'} for an artist name: ${body.categories_detail}.`));
   }
+  if (body.tag_snapshot_date) {
+    els.analysisFindings.appendChild(note(`Tag categories from the ${offlineTagIndexLabel(body.tag_snapshot_date)}.`));
+  }
   renderCritic();
   renderCompare();
   // The box may have moved on while the request was out.

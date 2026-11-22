@@ -1,5 +1,5 @@
 // Face and hand region review. The server detects, orders and freezes the
-// regions; the page chooses which of those regions to queue, without writing
+// regions; the page reviews and chooses which regions to queue, without writing
 // the composer. Declarations only; app.js wires the controls.
 'use strict';
 
@@ -24,7 +24,7 @@ function syncDetailerTool(button, rec) {
   const binned = !!rec?.binned_at;
   button.setAttribute('aria-disabled', String(binned));
   button.title = binned ? 'In the recycle bin: restore it to detail it'
-    : 'Find face or hand regions, review them, then queue an inpaint of each selected region';
+    : 'Detect or draw face and hand regions, then queue an inpaint of each selected region';
 }
 
 function detailerFromCard(rec) {
@@ -48,6 +48,7 @@ async function openDetailer(rec) {
   detailerStatusError = '';
   detailerNeedsReopen = false;
   detailerRevision = modelRevision;
+  cancelDetailerEdit();
   const foreign = modelsDiffer(rec.model_id);
   detailerLora = !foreign && loraSupported && rec.lora
     && [...els.lora.options].some((option) => option.value === rec.lora)
@@ -121,9 +122,9 @@ function detailerCanPrepare(detector) {
 }
 
 function detailerChangedDetector() {
-  if (detailerWorking || detailerSending) {
+  if (detailerWorking || detailerSending || detailerEdit) {
     els.detailerDetectors.value = detailerDetectorSelection;
-    detailerFailed('Wait for the current request to finish.');
+    detailerFailed(detailerEdit ? 'Apply or cancel the current box first.' : 'Wait for the current request to finish.');
     return;
   }
   detailerDetectorSelection = els.detailerDetectors.value;
@@ -136,6 +137,7 @@ function detailerChangedDetector() {
 
 async function prepareDetailer() {
   if (!detailerSource) return;
+  if (detailerEdit) { detailerFailed('Apply or cancel the current box first.'); return; }
   if (detailerWorking || detailerSending) { detailerFailed('Wait for the current request to finish.'); return; }
   const detector = chosenDetailerDetector();
   if (!detailerCanPrepare(detector)) {
@@ -196,6 +198,7 @@ async function detectDetailer() {
 
 function detailerDetectHold() {
   if (detailerNeedsReopen) return 'The checkpoint changed. Close this dialog and reopen it on the current checkpoint.';
+  if (detailerEdit) return 'Apply or cancel the current box first.';
   if (detailerWorking) return 'Wait for the detector request to finish.';
   if (detailerSending || submitting) return `${PASS_IN_FLIGHT}.`;
   if (serverOffline) return OFFLINE_MESSAGE;
@@ -227,15 +230,16 @@ function detailerNumberProblem() {
 
 function detailerRunHold() {
   if (detailerNeedsReopen) return 'The checkpoint changed. Close this dialog and reopen it on the current checkpoint.';
+  if (detailerEdit) return 'Apply or cancel the current box before queuing.';
   if (detailerSending || submitting) return `${PASS_IN_FLIGHT}.`;
   if (detailerWorking) return 'Wait for the detector request to finish.';
   if (serverOffline) return OFFLINE_MESSAGE;
   const held = submitHold();
   if (held) return held;
-  if (!detailerPreview) return 'Detect regions, then review them before queuing.';
+  if (!detailerPreview) return 'Detect or draw regions, then review them before queuing.';
   if (detailerRevision !== modelRevision) return 'The checkpoint changed. Detect regions again.';
   if (!detailerSelected.size) return detailerPreview.regions.length
-    ? 'Select at least one region to queue.' : 'No regions were detected. Nothing will be queued.';
+    ? 'Select at least one region to queue.' : 'Nothing will be queued until you draw or detect a region.';
   if (typeof detailerStatus?.max_regions === 'number' && detailerSelected.size > detailerStatus.max_regions) {
     return `Choose at most ${detailerStatus.max_regions} regions for one detail operation.`;
   }
@@ -250,6 +254,7 @@ function syncDetailerDialog() {
   const canPrepare = detailerCanPrepare(detector);
   const prepareReason = detailerWorking ? 'Wait for the detector request to finish.'
     : detailerSending ? `${PASS_IN_FLIGHT}.`
+      : detailerEdit ? 'Apply or cancel the current box first.'
       : !canPrepare ? detector?.reason || 'This detector cannot be prepared here.' : '';
   const preparingReady = !!detector?.available;
   const prepareTitle = preparingReady
@@ -261,8 +266,9 @@ function syncDetailerDialog() {
     button.title = reason || (button === els.detailerDetect ? 'Detect regions on the CPU; no image is generated'
       : prepareTitle);
   }
-  els.detailerDetectors.setAttribute('aria-disabled', String(detailerWorking || detailerSending));
-  els.detailerDetectors.title = detailerWorking || detailerSending ? 'Wait for the current request to finish.' : 'Choose what to detect';
+  els.detailerDetectors.setAttribute('aria-disabled', String(detailerWorking || detailerSending || !!detailerEdit));
+  els.detailerDetectors.title = detailerEdit ? 'Apply or cancel the current box first.'
+    : detailerWorking || detailerSending ? 'Wait for the current request to finish.' : 'Choose what to detect';
   const detectorNote = [detailerStatus?.reason,
     detector?.reason || (detector ? `${detector.label} · ${detector.available ? 'ready on the CPU' : 'download required'}` : 'Reading detector status…'),
     detector?.note].filter(Boolean).join(' ');
@@ -272,7 +278,20 @@ function syncDetailerDialog() {
     ? `Masks feather ${detailerStatus.feather}px within each marked area. `
     : 'Masks have feathered edges within each marked area. ')
     + 'Passes run in list order; later passes see earlier edits. Each pass is saved.';
-  els.detailerBusy.textContent = detailerWorking ? 'Detector request in progress…' : '';
+  els.detailerBusy.textContent = detailerWorking ? 'Region review request in progress…'
+    : detailerEdit ? 'Drag a box on the image or enter its pixel bounds.' : '';
+  const drawReason = detailerDrawHold() || (detailerEdit ? 'Apply or cancel the current box first.' : '');
+  for (const button of [els.detailerDrawFace, els.detailerDrawHand, ...els.detailerRegions.querySelectorAll('button[data-edit-region]')]) {
+    button.setAttribute('aria-disabled', String(!!drawReason));
+    button.title = drawReason || (button.dataset.editAction === 'remove' ? button.textContent : 'Drag a box on the image or enter its pixel bounds');
+  }
+  els.detailerDrawEdit.hidden = !detailerEdit;
+  els.detailerStage.classList.toggle('is-drawing', !!detailerEdit);
+  els.detailerBounds.readOnly = detailerWorking;
+  for (const button of [els.detailerDrawApply, els.detailerDrawCancel]) {
+    button.setAttribute('aria-disabled', String(detailerWorking));
+    button.title = detailerWorking ? 'Wait for the region review to finish.' : button.textContent;
+  }
   const refreshReason = detailerWorking ? 'Wait for the detector request to finish.'
     : detailerSending ? `${PASS_IN_FLIGHT}.` : '';
   els.detailerRefresh.setAttribute('aria-disabled', String(!!refreshReason));
@@ -289,7 +308,7 @@ function syncDetailerDialog() {
   els.detailerSummary.textContent = detailerPreview
     ? detailerPreview.regions.length ? `${count} of ${detailerPreview.regions.length} regions selected · ${count} inpaint passes`
       + (detailerPreview.regions.length > detailerStatus?.max_regions ? ` · choose up to ${detailerStatus.max_regions}` : ' · time estimate unavailable')
-      : 'No regions detected. Nothing will be queued.'
+      : 'No regions found. Draw a box to add one. Nothing will be queued yet.'
     : 'Detection does not decide whether a face or hand needs changing. Review each region.';
 }
 
@@ -307,19 +326,37 @@ function renderDetailerRegions() {
     const text = document.createElement('span');
     const shared = (region.overlaps ?? []).map((id) => numbers.get(id)).filter((number) => number !== undefined);
     const overlaps = shared.length ? ` · overlaps region${shared.length === 1 ? '' : 's'} ${shared.join(', ')}` : '';
-    text.textContent = `${name}${overlaps}`;
-    label.append(tick, text); row.append(label); els.detailerRegions.append(row);
+    const origin = region.origin === 'drawn' ? ' · drawn' : region.origin === 'corrected' ? ' · corrected' : '';
+    text.textContent = `${name}${origin}${overlaps}`;
+    label.append(tick, text);
+    row.append(label, detailerRegionButton(region, name, 'redraw', 'Redraw'));
+    if (region.origin) row.append(detailerRegionButton(region, name, 'remove', region.origin === 'drawn' ? 'Remove' : 'Reset'));
+    els.detailerRegions.append(row);
     const box = document.createElement('button');
     box.type = 'button'; box.className = 'detailer-box'; box.dataset.region = String(region.id);
     box.textContent = String(index + 1); box.setAttribute('aria-label', `${name} region`);
     box.setAttribute('aria-pressed', String(selected));
-    const [left, top, right, bottom] = region.mask_box ?? region.box;
-    box.style.left = `${left / detailerPreview.width * 100}%`;
-    box.style.top = `${top / detailerPreview.height * 100}%`;
-    box.style.width = `${(right - left) / detailerPreview.width * 100}%`;
-    box.style.height = `${(bottom - top) / detailerPreview.height * 100}%`;
+    placeDetailerBox(box, region.mask_box ?? region.box, detailerPreview);
     els.detailerBoxes.append(box);
   }
+}
+
+function detailerRegionButton(region, name, action, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ghost small';
+  button.dataset.editRegion = region.id;
+  button.dataset.editAction = action;
+  button.textContent = label;
+  button.setAttribute('aria-label', `${label} ${name} region`);
+  return button;
+}
+
+function placeDetailerBox(element, [left, top, right, bottom], { width, height }) {
+  element.style.left = `${left / width * 100}%`;
+  element.style.top = `${top / height * 100}%`;
+  element.style.width = `${(right - left) / width * 100}%`;
+  element.style.height = `${(bottom - top) / height * 100}%`;
 }
 
 function chooseDetailerRegion(event) {
@@ -352,6 +389,11 @@ function detailerChanged() {
 
 function detailerKeydown(event) {
   if (keyboardEventHeld(event) || keyboardCommandModifier(event)) return;
+  if (event.key === 'Enter' && event.target === els.detailerBounds) {
+    event.preventDefault();
+    if (!event.repeat) saveDetailerBox();
+    return;
+  }
   if (event.key === 'Enter' && !event.shiftKey && event.target.matches?.('#detailer-dialog input[type="number"]')) {
     event.preventDefault();
     if (!event.repeat) void runDetailer();
@@ -443,7 +485,10 @@ function closeDetailer() {
   if (detailerSending) { detailerFailed(`${PASS_IN_FLIGHT}.`); return; }
   els.detailerDialog.close();
 }
-function detailerCancelEvent(event) { if (detailerSending) event.preventDefault(); }
+function detailerCancelEvent(event) {
+  if (detailerSending || detailerEdit) event.preventDefault();
+  if (detailerEdit && !detailerWorking) cancelDetailerEdit(true);
+}
 
 function detailerClosed() {
   const back = detailerReturn;
@@ -454,6 +499,7 @@ function detailerClosed() {
   detailerSource = null;
   detailerStatus = null;
   detailerPreview = null;
+  cancelDetailerEdit();
   detailerSelected.clear();
   detailerReturn = null;
   detailerOpener = null;
@@ -468,9 +514,10 @@ function detailerSourcesMoved(ids) {
   detailerEpoch++;
   detailerWorking = false;
   detailerPreview = null;
+  cancelDetailerEdit();
   detailerSelected.clear();
   renderDetailerRegions();
-  detailerFailed('The source changed. Restore it if needed, then detect regions again.');
+  detailerFailed('The source changed. Restore it if needed, then detect or draw regions again.');
   syncDetailerDialog();
 }
 
@@ -480,6 +527,7 @@ function detailerCheckpointChanged() {
   detailerWorking = false;
   detailerNeedsReopen = true;
   detailerPreview = null;
+  cancelDetailerEdit();
   detailerSelected.clear();
   renderDetailerRegions();
   detailerFailed('The checkpoint changed. Close this dialog and reopen it to use the current checkpoint.');

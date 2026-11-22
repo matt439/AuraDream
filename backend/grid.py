@@ -56,6 +56,7 @@ from .instruction_edit import bound_spec, edit_key
 from .refine import start_index, steps_run
 from .schemas import GenerateRequest, ImageRecord, PromptVariant
 from .seeds import random_seed, wrap_seed
+from .spatial_conditioning import conditioning_key
 from .tiled_refine_contract import (
     DENOISED_STEPS as TILED_REFINE_DENOISED_STEPS, STRENGTH as TILED_REFINE_STRENGTH, tiled_refine_key,
 )
@@ -113,13 +114,13 @@ _CellKeyPrefix = tuple[
     str | None, str | None, str | None, str | None, str | None,
 ]
 _OrdinaryCellKey = tuple[*_CellKeyPrefix, str, int]
-_TiledCellKey = tuple[*_CellKeyPrefix, str, str, int]
-CellKey = _OrdinaryCellKey | _TiledCellKey
+_RecipeCellKey = tuple[*_CellKeyPrefix, str, str, int]
+CellKey = _OrdinaryCellKey | _RecipeCellKey
 
 
-def with_tiled_refine_key(key: _OrdinaryCellKey, tiled: str | None) -> CellKey:
-    """A distinct extension for the tiled recipe and its verified root."""
-    return key if tiled is None else (*key[:-2], tiled, *key[-2:])
+def with_recipe_key(key: _OrdinaryCellKey, recipe: str | None) -> CellKey:
+    """Add the tiled or spatial recipe before shape and seed when one is used."""
+    return key if recipe is None else (*key[:-2], recipe, *key[-2:])
 
 
 def key_with_seed(key: CellKey, seed: int) -> CellKey:
@@ -781,7 +782,8 @@ def cell_key(cell: "Cell") -> CellKey:
         shape_key(request.width, request.height, request.crop_anchor),
         cell.seed,
     )
-    return with_tiled_refine_key(key, tiled_refine_key(bound_tiled_refine))
+    recipe = tiled_refine_key(bound_tiled_refine) or conditioning_key(request.spatial_conditioning)
+    return with_recipe_key(key, recipe)
 
 
 def duplicate_count(
@@ -928,6 +930,7 @@ def cell_from_record(
         "edit": record.edit,
         "detailer": record.detailer,
         "tiled_refine": record.tiled_refine,
+        "spatial_conditioning": record.spatial_conditioning,
         "seed": record.seed,
     }
     unknown = set(changes) - set(GenerateRequest.model_fields)
@@ -951,8 +954,9 @@ def cell_from_record(
     if fields["tiled_refine"] is not None:
         if "strength" not in changes:
             fields["strength"] = TILED_REFINE_STRENGTH
-        if negative_prompt is not _KEEP and "true_cfg" not in changes:
-            fields["true_cfg"] = None
+    if ((fields["tiled_refine"] is not None or fields["spatial_conditioning"] is not None)
+            and negative_prompt is not _KEEP and "true_cfg" not in changes):
+        fields["true_cfg"] = None
     return Cell(
         request=GenerateRequest(**fields),
         seed=fields["seed"],
@@ -1028,8 +1032,8 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
 
     def named(cell: Cell) -> str:
         key = cell_key(cell)
-        tiled_refine = key[-3] if len(key) == 16 else None
-        if tiled_refine is not None:
+        recipe = key[-3] if len(key) == 16 else None
+        if recipe is not None:
             key = (*key[:-3], *key[-2:])
         # Comparison keys always carry shape. Uniform centered hashed names
         # keep the exact legacy key and size definition instead.
@@ -1053,8 +1057,9 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
         while extras and extras[-1] is None:
             extras.pop()
         facts = [*head, *extras, seed]
-        if tiled_refine is not None:
-            return json.dumps({"cell": facts, "tiled_refine": tiled_refine})
+        if recipe is not None:
+            field = "tiled_refine" if cell.request.tiled_refine is not None else "spatial_conditioning"
+            return json.dumps({"cell": facts, field: recipe})
         return json.dumps(facts)
 
     definition = {

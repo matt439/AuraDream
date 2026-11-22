@@ -14,6 +14,7 @@ from .app_context import AppServices
 from .execution import require_configured_loader_available, resolve_execution
 from .model_selection import current_settings
 from .launch import catalogue_entry
+from .refusals import refusal
 from .schemas import MoreSeedsRequest, ThenRefine, error_detail
 from .schemas_rerun import (
     FinishRunAccepted, FinishRunPreview, FinishRunRequest, RunAction, RunDetails,
@@ -278,7 +279,7 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
                 break
             inputs = (request.refine, request.mask, request.outpaint, request.mask_crop, tuple(request.reference),
                       request.lora, request.width, request.height, request.upscaler,
-                      grid.edit_key(request.edit), request.tiled_refine)
+                      grid.edit_key(request.edit), request.tiled_refine, request.spatial_conditioning)
             if inputs not in checked:
                 checked[inputs] = await submission.unusable_input(services, request)
             unusable = checked[inputs]
@@ -389,6 +390,8 @@ def create_router(services: AppServices) -> APIRouter:
                     then_refine_cells=plan.then_refine_cells,
                 )
             except ValueError as exc:
+                if any(cell.request.spatial_conditioning is not None for cell in plan.cells):
+                    raise refusal(409, error_detail(exc), exc) from exc
                 if plan.cells or not plan.source_passes:
                     raise
                 # Every base whose pass was missing went between the check

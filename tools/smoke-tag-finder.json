@@ -87,5 +87,24 @@
   {"eval": "els.tagsBtn.click(); showTagFinder(true); els.examplesBtn.click();"},
   {"expect": "els.tagFinderMenu.hidden && !els.examplesMenu.hidden"},
   {"eval": "els.examplesBtn.click(); showTagFinder(true); document.body.click();"},
-  {"expect": "els.tagFinderMenu.hidden"}
+  {"expect": "els.tagFinderMenu.hidden"},
+
+  {"log": "'Install the offline index in Tags, then use its alias suggestion, checks and source switch'"},
+  {"eval": "els.tagsBtn.click(); window.__index = () => els.tagsMenu.querySelector('[data-tag-snapshot]'); window.__indexButton = (action) => __index().querySelector('[data-action=' + action + ']');"},
+  {"expect": "__until(() => __indexButton('download').textContent === 'Download offline index')", "fatal": true},
+  {"eval": "__indexButton('download').focus();"},
+  {"key": "Enter", "native": true},
+  {"expect": "__until(() => __index().querySelector('[role=status]').textContent.includes('Using Danbooru snapshot dated') && __indexButton('source').textContent === 'Use live lookup')", "fatal": true},
+  {"eval": "els.tagsBtn.click(); els.prompt.focus(); writeBox(els.prompt, '1girl, platinum hair ribbon'); els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length); scheduleTagSuggestions(0);"},
+  {"expect": "__until(() => els.tagSuggestions.querySelector('.tag-name')?.textContent === 'silver hair ribbon' && els.tagSuggestions.getAttribute('aria-label').includes('Danbooru snapshot dated'))"},
+  {"eval": "writeBox(els.prompt, '1girl, platinum hair ribbon, qxxy absent'); els.prompt.blur(); scheduleTagValidation(0);"},
+  {"expect": "__until(() => els.tagValidation.dataset.label.includes('Danbooru snapshot dated') && [...els.tagValidation.querySelectorAll('.tag-check.unknown')].some((chip) => chip.getAttribute('aria-label').startsWith('qxxy absent, ')))", "fatal": true},
+  {"eval": "[...els.tagValidation.querySelectorAll('.tag-check.unknown')].find((chip) => chip.getAttribute('aria-label').startsWith('qxxy absent, ')).dispatchEvent(new PointerEvent('pointerenter'));"},
+  {"expect": "!els.tagTip.hidden && els.tagTip.textContent.includes('absent from the Danbooru snapshot dated')"},
+  {"eval": "document.getElementById('btn-analyze').click();"},
+  {"expect": "__until(() => els.analysisFindings.textContent.includes('Tag categories from the Danbooru snapshot dated'))"},
+  {"eval": "els.tagsBtn.click(); __indexButton('source').click();"},
+  {"expect": "__until(() => __index().querySelector('[role=status]').textContent.includes('Live lookup is active') && __indexButton('source').textContent === 'Use offline index')"},
+  {"eval": "__indexButton('source').click();"},
+  {"expect": "__until(() => __index().querySelector('[role=status]').textContent.includes('Using Danbooru snapshot dated'))"}
 ]

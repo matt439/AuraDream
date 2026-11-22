@@ -119,6 +119,35 @@ def test_export_is_one_complete_snapshot_of_every_checkpoint_without_identity_or
     assert presets.path_for(database).read_bytes() == before
 
 
+def test_version_two_recipe_round_trips_through_export_import_and_restore_validation(client, store):
+    model_id = main.services.model_id()
+    database = store.settings.db_path
+    recipe = {"scale": 1.25, "strength": 0.4, "steps": None}
+    save(database, fields("Ordinary", model_id))
+    older, original = save(database, fields("Two-stage", model_id, then_refine=recipe))
+    document = client.get("/api/presets/export").json()
+    assert document["version"] == 2
+    assert "then_refine" not in document["items"][0]["payload"]
+    assert document["items"][1]["payload"]["then_refine"] == recipe
+    assert client.post("/api/presets/import/preview", json={"payload": {**document, "version": 1}}).status_code == 422
+
+    client.delete(f"/api/presets/{original.id}?revision={original.revision}").raise_for_status()
+    path = presets.path_for(database)
+    assert json.loads(path.read_bytes())["version"] == 1
+    shown = preview(client, document)
+    assert [row["action"] for row in shown["rows"]] == ["skip", "add"]
+    result = client.post("/api/presets/import", json=commit_body(document, shown))
+    assert result.status_code == 200, result.text
+    saved_older, restored = result.json()["items"]
+    assert saved_older == older.model_dump()
+    assert restored["id"] != original.id and restored["payload"] == original.payload.model_dump()
+    assert json.loads(path.read_bytes())["version"] == 2
+
+    checked = client.post(f"/api/presets/{restored['id']}/validate", json={
+        "revision": restored["revision"], "model_revision": model_selection.revision(),
+    })
+    assert checked.status_code == 200, checked.text
+    assert checked.json()["saved"]["then_refine"] == recipe
 def test_export_keeps_its_snapshot_when_crud_commits_during_the_read(client, store, monkeypatch):
     database = store.settings.db_path
     original = save(database, fields())[0]
@@ -338,7 +367,7 @@ _ITEM = '{"name":"a","model_id":"m/x","payload":{"prompt":"private_personal_text
     b'{"payload":{"format":"auradream.generation-presets","version":1,"items":[{"name":"a","model_id":"m/x",'
     b'"payload":{"prompt":"\\ud800"}}]}}',
     b'{"payload":{"format":"auradream.generation-presets","version":true,"items":[]}}',
-    b'{"payload":{"format":"auradream.generation-presets","version":2,"items":[]}}',
+    b'{"payload":{"format":"auradream.generation-presets","version":3,"items":[]}}',
     b'{"payload":{"format":"auradream.generation-presets","version":NaN,"items":[]}}',
     b'{"payload":{"format":"auradream.prompt-snippets","version":1,"items":[]}}',
     b"[" * 17 + b"0" + b"]" * 17,
@@ -384,7 +413,7 @@ def test_payload_has_its_own_byte_bound_inside_a_bounded_request(client, store, 
 
 
 @pytest.mark.parametrize("raw", [
-    b"broken", b'{"version":2,"items":[]}', b'{"version":true,"items":[]}', b'{"version":1,"items":[],"items":[]}',
+    b"broken", b'{"version":3,"items":[]}', b'{"version":true,"items":[]}', b'{"version":1,"items":[],"items":[]}',
 ])
 def test_unreadable_destination_blocks_export_preview_and_commit_without_replacing_file(client, store, raw):
     database = store.settings.db_path

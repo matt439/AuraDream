@@ -64,6 +64,7 @@ function fixture() {
       calls.requests.push(request); return request.promise; },
     readableDetail: value => String(value), checkpointName: id => id, isShown: () => true,
     executionSubmitHold: () => '', performanceChoiceValue: () => '', panelNumberInputs: () => [],
+    spatialConditioningSelected: () => false, thenRefinePayload: () => null,
     selectedExecution: null, EXECUTION_UNAVAILABLE: 'unavailable', loadedModel: 'model-A', lastDefaults: {},
     modelSwitching: false, pendingLora: '', referenceIds: [], owned: {}, modelRevision: 1,
     panelState: () => ({}), reuseFields: () => ({}), invalidExecutionDraft: null, serverStartedAt: 0, trScale: 1,

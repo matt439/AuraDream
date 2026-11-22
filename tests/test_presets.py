@@ -96,7 +96,10 @@ def test_revisions_update_delete_and_missing_item(tmp_path):
     {"width": 255}, {"height": True}, {"prompt": ""}, {"prompt": "x" * 4001},
     {"negative_prompt": "x" * 4001}, {"prompt": "\ud800"},
     {"execution": None}, {"step_cache": None}, {"reference": []}, {"lora": None},
-    {"refine": None}, {"then_refine": None}, {"edit": None}, {"resume": False},
+    {"refine": None}, {"then_refine": {"scale": True, "strength": 0.4}},
+    {"then_refine": {"scale": 1.25, "strength": "0.4"}},
+    {"then_refine": {"scale": 1.5, "strength": 0.4, "source": 7}},
+    {"edit": None}, {"resume": False},
     {"mode": "grid"}, {"grid": {}},
 ])
 def test_payload_is_typed_bounded_and_has_no_unowned_fields(payload):
@@ -145,7 +148,7 @@ def test_atomic_failure_keeps_original_and_removes_temporary(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize("data", [
-    b"not JSON", b'{"version":2,"items":[]}', b'{"version":true,"items":[]}',
+    b"not JSON", b'{"version":3,"items":[]}', b'{"version":true,"items":[]}',
     b'{"version":1,"items":[],"unknown":true}', b'{"version":1,"items":{},"unknown":true}',
     b'{"version":1,"version":1,"items":[]}', b'{"version":1,"items":[{}]}',
     b"[" * 2000 + b"]" * 2000,

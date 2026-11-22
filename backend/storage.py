@@ -32,13 +32,14 @@ from . import gallery_lock, refine
 # The key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
-from .grid import lora_key, mask_key, reference_key, refine_key, shape_key, with_tiled_refine_key
+from .grid import lora_key, mask_key, reference_key, refine_key, shape_key, with_recipe_key
 from .instruction_edit import InstructionEditSource, descriptor_from_image, edit_key
 from .detailer import stored_json as detailer_json
 from .metadata import (
     PNG_MASK_KEY, PNG_METADATA_KEY, canonical_detailer, canonical_edit, canonical_tiled_refine,
-    detailer_chunk, detailer_from_json, edit_chunk, edit_from_json, tiled_refine_chunk, tiled_refine_from_json,
-    validate_detailer_record, validate_edit_record, validate_tiled_refine_record,
+    clean_import_name, detailer_chunk, detailer_from_json, edit_chunk, edit_from_json, tiled_refine_chunk,
+    tiled_refine_from_json, validate_detailer_record, validate_edit_record, validate_import_record,
+    validate_tiled_refine_record,
 )
 from .mask_crop import Crop
 from .png_settings import crop_anchor as _crop_anchor
@@ -58,6 +59,10 @@ from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 from .schemas_mask_crop import MaskCropSpec
 from .tiled_refine_contract import descriptor_from_image as tiled_descriptor_from_image
 from .tiled_refine_contract import tiled_refine_key
+from .spatial_conditioning import (
+    canonical_conditioning, conditioning_chunk, conditioning_from_json, conditioning_json, conditioning_key,
+    validate_record as validate_conditioning_record, validate_request as validate_conditioning_request,
+)
 
 if TYPE_CHECKING:
     from .grid import CellKey
@@ -200,7 +205,9 @@ CREATE TABLE IF NOT EXISTS images (
     mask_crop       TEXT,
     mask_crop_box   TEXT,
     detailer        TEXT,
-    tiled_refine    TEXT
+    tiled_refine    TEXT,
+    spatial_conditioning TEXT,
+    imported_name   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -335,6 +342,8 @@ _ADDED_COLUMNS = (
     # replay as ordinary inpaints, never by running detection again.
     ("detailer", "TEXT", None),
     ("tiled_refine", "TEXT", None),
+    ("spatial_conditioning", "TEXT", None),
+    ("imported_name", "TEXT", None),
 )
 
 
@@ -483,12 +492,15 @@ def _row_to_record(
             thumb_url = f"/outputs/{thumb.relative_to(settings.outputs_dir).as_posix()}"
     edit = edit_from_json(row["edit"])
     tiled_refine = tiled_refine_from_json(row["tiled_refine"])
-    validate_edit_record(edit, dict(row))
+    fields = dict(row)
+    validate_edit_record(edit, fields)
+    validate_import_record(fields)
     return ImageRecord(
         id=row["id"],
         filename=row["filename"],
         url=f"/outputs/{row['filename']}",
         thumb_url=thumb_url,
+        imported_name=row["imported_name"],
         prompt=row["prompt"],
         negative_prompt=row["negative_prompt"],
         variables=json.loads(row["variables"]) if row["variables"] else None,
@@ -516,6 +528,7 @@ def _row_to_record(
         edit=edit,
         detailer=detailer_from_json(row["detailer"]),
         tiled_refine=tiled_refine,
+        spatial_conditioning=conditioning_from_json(row["spatial_conditioning"]),
         edit_missing=edit_missing or (edit is not None and edit.source is None),
         edit_binned=edit_binned,
         tiled_refine_missing=tiled_refine_missing or (tiled_refine is not None and tiled_refine.source is None),
@@ -549,7 +562,7 @@ _COLUMNS = (
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
     "refine", "strength", "crop_anchor", "batch", "binned_at", "mask", "outpaint", "upscaler",
     "execution", "edit", "vram_peak_allocated", "vram_peak_reserved", "mask_crop", "mask_crop_box", "detailer",
-    "tiled_refine",
+    "tiled_refine", "imported_name", "spatial_conditioning",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -557,6 +570,7 @@ _COLUMNS = (
 # every read about what exists on disk or has already been made - the orphan
 # sweep, reindex, bundles, resume keys, lineage, the cost samples.
 _LIVE = "binned_at IS NULL"
+GALLERY_CHECKPOINT_SCOPE = "(model_id = ? OR imported_name IS NOT NULL)"
 
 
 def content_hash(image: Image.Image) -> str:
@@ -578,6 +592,8 @@ def _insert_row(conn: sqlite3.Connection, values: dict[str, Any]) -> sqlite3.Row
     """One row in, the FTS trigger firing with it, the row read back."""
     validate_edit_record(edit_from_json(values.get("edit")), values)
     validate_tiled_refine_record(tiled_refine_from_json(values.get("tiled_refine")), values)
+    validate_conditioning_record(conditioning_from_json(values.get("spatial_conditioning")), values)
+    validate_import_record(values)
     columns = ", ".join(_COLUMNS)
     marks = ", ".join("?" * len(_COLUMNS))
     cur = conn.execute(
@@ -604,6 +620,28 @@ def image_provenance(image_id: int | None) -> dict[str, Any] | None:
         "width": record.width,
         "height": record.height,
     }
+
+
+def save_imported_source(image: Image.Image, name: str) -> ImageRecord:
+    """Store a normalized source without assigning it a generation recipe."""
+    if image.mode != "RGB":
+        raise ValueError("Imported gallery sources must be RGB.")
+    created = datetime.now(timezone.utc)
+    filename = f"{created:%Y%m%d-%H%M%S}-import-{uuid.uuid4().hex}.png"
+    name = clean_import_name(name)
+    digest = content_hash(image)
+    values: dict[str, Any] = dict.fromkeys(_COLUMNS)
+    values.update(
+        filename=filename, imported_name=name, prompt="", steps=0, guidance_scale=0, seed=0, model_id="",
+        width=image.width, height=image.height, duration_ms=0, created_at=created.isoformat(),
+        favorite=0, content_hash=digest,
+    )
+    info = PngImagePlugin.PngInfo()
+    info.add_text(PNG_METADATA_KEY, json.dumps({
+        "imported_name": name, "prompt": "", "steps": 0, "guidance_scale": 0, "seed": 0, "model": "",
+        "size": f"{image.width}x{image.height}", "hash": digest,
+    }))
+    return _save_png(image, info, values)
 
 
 def save_image(
@@ -638,6 +676,7 @@ def save_image(
     edit = edit_from_json(edit_key(request.edit))
     detailer = request.validate_detailer()
     tiled = canonical_tiled_refine(request.validate_tiled_refine(require_bound=True))
+    conditioning = validate_conditioning_request(request)
     if tiled is not None and image.mode != "RGB":
         raise ValueError("Tiled Refine saves an RGB composite.")
     allocated, reserved = (_peak(peak[0]), _peak(peak[1])) if peak is not None else (None, None)
@@ -659,19 +698,6 @@ def save_image(
     )
     digest = content_hash(image)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
-    # The directory can disappear under a running server - renamed, deleted by
-    # hand - and the full denoise then died here. One mkdir per image is cheap.
-    ensure_outputs_dir()
-    path = settings.outputs_dir / filename
-    # Written under a temporary name and renamed only once the row is committed.
-    # A 2048x2048 PNG takes ~240ms to encode and `_write_lock` means nothing to
-    # `clear.py`, which is a separate process: for that quarter second the file
-    # would otherwise be an untracked *.png for its orphan sweep to delete -
-    # taking a good image with it, or failing on the open handle with WinError
-    # 32 after the row DELETE had already committed. A *.png.part matches
-    # neither that glob nor the gallery's.
-    partial = path.with_name(path.name + ".part")
-
     meta: dict[str, Any] = {
         "prompt": request.prompt,
         "negative_prompt": request.negative_prompt,
@@ -722,6 +748,7 @@ def save_image(
         **edit_chunk(edit),
         **detailer_chunk(detailer),
         **tiled_refine_chunk(tiled),
+        **conditioning_chunk(conditioning),
         # Results, not settings, so absent rather than null when unmeasured:
         # a chunk from a CPU or before them reads the same.
         **peak_chunk({"vram_peak_allocated": allocated, "vram_peak_reserved": reserved}),
@@ -730,6 +757,7 @@ def save_image(
     validate_edit_record(edit, meta)
     validate_detailer_record(detailer, meta)
     validate_tiled_refine_record(tiled, meta)
+    validate_conditioning_record(conditioning, meta)
     # A1111-style single-line block, so other tools can read the params back.
     # Mu is not an A1111 key, but it is part of what reproduces the image, which
     # is the reason the block exists. Nor is True CFG: on FLUX.1 the CFG
@@ -774,6 +802,68 @@ def save_image(
     if embedded is not None:
         info.add_text(PNG_MASK_KEY, base64.b64encode(embedded).decode("ascii"))
 
+    values = {
+        "filename": filename,
+        "imported_name": None,
+        "prompt": request.prompt,
+        "negative_prompt": request.negative_prompt,
+        "width": image.width,
+        "height": image.height,
+        "steps": request.steps,
+        "guidance_scale": request.guidance_scale,
+        "mu": request.mu,
+        "seed": seed,
+        "model_id": model_id,
+        "duration_ms": duration_ms,
+        "favorite": 0,
+        "created_at": created.isoformat(),
+        "job_id": job_id,
+        "run_id": run_id,
+        "quantization": quantization,
+        "variables": variables_json,
+        "true_cfg": request.true_cfg,
+        "content_hash": digest,
+        "reference": json.dumps(list(request.reference)) if request.reference else None,
+        "lora": request.lora,
+        "lora_scale": request.lora_scale if request.lora else None,
+        "refine": request.refine,
+        "strength": request.strength if request.refine is not None else None,
+        "crop_anchor": crop_anchor,
+        "batch": batch,
+        "binned_at": None,
+        "mask": mask,
+        "outpaint": outpaint.key() if outpaint is not None else None,
+        "upscaler": upscaler,
+        "execution": execution_key(execution),
+        "edit": edit_key(edit),
+        "detailer": detailer_json(detailer),
+        "tiled_refine": tiled_refine_key(tiled),
+        "spatial_conditioning": conditioning_json(conditioning),
+        "vram_peak_allocated": allocated,
+        "vram_peak_reserved": reserved,
+        "mask_crop": crop_spec.key() if crop_spec is not None else None,
+        "mask_crop_box": mask_crop_box(mask_region),
+    }
+    return _save_png(image, info, values)
+
+
+def _save_png(
+    image: Image.Image, info: PngImagePlugin.PngInfo, values: dict[str, Any],
+) -> ImageRecord:
+    """Write a generated result or imported source with the same commit ordering."""
+    # The directory can disappear under a running server - renamed, deleted by
+    # hand - and a save then failed here. One mkdir per image is cheap.
+    ensure_outputs_dir()
+    path = settings.outputs_dir / values["filename"]
+    # Written under a temporary name and renamed only once the row is committed.
+    # A 2048x2048 PNG takes ~240ms to encode and `_write_lock` means nothing to
+    # `clear.py`, which is a separate process: for that quarter second the file
+    # would otherwise be an untracked *.png for its orphan sweep to delete -
+    # taking a good image with it, or failing on the open handle with WinError
+    # 32 after the row DELETE had already committed. A *.png.part matches
+    # neither that glob nor the gallery's.
+    partial = path.with_name(path.name + ".part")
+
     committed = False
     thumb_path = _thumb_path(path)
     thumb = None
@@ -790,49 +880,7 @@ def save_image(
         thumb = _encode_thumb(image, thumb_path)
         with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
             with _write_lock, _session() as conn:
-                row = _insert_row(
-                    conn,
-                    {
-                        "filename": filename,
-                        "prompt": request.prompt,
-                        "negative_prompt": request.negative_prompt,
-                        "width": image.width,
-                        "height": image.height,
-                        "steps": request.steps,
-                        "guidance_scale": request.guidance_scale,
-                        "mu": request.mu,
-                        "seed": seed,
-                        "model_id": model_id,
-                        "duration_ms": duration_ms,
-                        "favorite": 0,
-                        "created_at": created.isoformat(),
-                        "job_id": job_id,
-                        "run_id": run_id,
-                        "quantization": quantization,
-                        "variables": variables_json,
-                        "true_cfg": request.true_cfg,
-                        "content_hash": digest,
-                        "reference": json.dumps(list(request.reference)) if request.reference else None,
-                        "lora": request.lora,
-                        "lora_scale": request.lora_scale if request.lora else None,
-                        "refine": request.refine,
-                        "strength": request.strength if request.refine is not None else None,
-                        "crop_anchor": crop_anchor,
-                        "batch": batch,
-                        "binned_at": None,
-                        "mask": mask,
-                        "outpaint": outpaint.key() if outpaint is not None else None,
-                        "upscaler": upscaler,
-                        "execution": execution_key(execution),
-                        "edit": edit_key(edit),
-                        "detailer": detailer_json(detailer),
-                        "tiled_refine": tiled_refine_key(tiled),
-                        "vram_peak_allocated": allocated,
-                        "vram_peak_reserved": reserved,
-                        "mask_crop": crop_spec.key() if crop_spec is not None else None,
-                        "mask_crop_box": mask_crop_box(mask_region),
-                    },
-                )
+                row = _insert_row(conn, values)
                 # A pass whose source was deleted while it ran - read as the
                 # cell began, gone by its end - says so as list_images would,
                 # under the lock a delete takes: returned as present, the page
@@ -920,6 +968,8 @@ def list_images(
     before: int | None = None,
     model_id: str | None = None,
     binned: bool = False,
+    include_unscoped_sources: bool = False,
+    include_imported: bool = True,
 ) -> tuple[list[ImageRecord], int, int]:
     """One page of the gallery, the total the filters match, and what a
     checkpoint scope left out.
@@ -934,6 +984,8 @@ def list_images(
     match on other checkpoints: the badge for the switch that shows them,
     and the difference between "this run made nothing" and "this run was
     made on the other model". 0 when unscoped.
+    The ordinary gallery also shows imported sources alongside every checkpoint;
+    its sampling sheet can ask for generated rows only.
 
     The recycle bin is left out, or with `binned` is all there is: the bin's
     own view, under the same search and paging.
@@ -942,8 +994,12 @@ def list_images(
     # predicates, the text ones, and the count of what the scope hides needs
     # the rest alone.
     scope = "model_id = ?" if model_id else ""
+    if scope and include_unscoped_sources and include_imported:
+        scope = GALLERY_CHECKPOINT_SCOPE
     where: list[str] = []
     params: list = []
+    if not include_imported:
+        where.append("imported_name IS NULL")
     if favorites_only:
         where.append("favorite = 1")
     # Before the text predicates, which the LIKE fallback swaps as the last.
@@ -1006,7 +1062,7 @@ def list_images(
             total, rows = _page(conn, *clause_for(scope), limit, offset, before)
         others = 0
         if model_id:
-            other_clause, other_params = clause_for("model_id <> ?")
+            other_clause, other_params = clause_for("model_id <> ? AND imported_name IS NULL")
             others = conn.execute(
                 f"SELECT COUNT(*) FROM images {other_clause}", other_params
             ).fetchone()[0]
@@ -1175,7 +1231,7 @@ def completed_cells(
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
                            reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, edit, execution,
-                           crop_anchor, mask_crop, seed, tiled_refine
+                           crop_anchor, mask_crop, seed, tiled_refine, spatial_conditioning
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -1185,7 +1241,11 @@ def completed_cells(
                 true_cfg = effective_true_cfg(
                     row["true_cfg"], row["negative_prompt"], row["guidance_scale"]
                 )
-                keys.add(with_tiled_refine_key(
+                recipe = (
+                    tiled_refine_key(tiled_refine_from_json(row["tiled_refine"]))
+                    or conditioning_key(conditioning_from_json(row["spatial_conditioning"]))
+                )
+                keys.add(with_recipe_key(
                     (
                         row["prompt"],
                         # '' and NULL both mean "no negative prompt", and which
@@ -1208,7 +1268,7 @@ def completed_cells(
                         shape_key(width, height, row["crop_anchor"]),
                         row["seed"],
                     ),
-                    tiled_refine_key(tiled_refine_from_json(row["tiled_refine"])),
+                    recipe,
                 ))
     return keys
 
@@ -1308,6 +1368,7 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
         "edit": edit_key(edit_from_json(values.get("edit"))),
         "detailer": detailer_json(detailer_from_json(values.get("detailer"))),
         "tiled_refine": tiled_refine_key(tiled_refine_from_json(values.get("tiled_refine"))),
+        "spatial_conditioning": conditioning_json(conditioning_from_json(values.get("spatial_conditioning"))),
         "crop_anchor": _crop_anchor(
             values.get("crop_anchor"), source=values.get("refine"),
             mask=values.get("mask"), outpaint=values.get("outpaint"),
@@ -1366,11 +1427,15 @@ def index_file(
     validate_edit_record(canonical_edit(meta.get("edit")), {**meta, "width": width, "height": height})
     validate_detailer_record(canonical_detailer(meta.get("detailer")), {**meta, "width": width, "height": height})
     validate_tiled_refine_record(tiled, {**meta, "width": width, "height": height})
+    spatial = canonical_conditioning(meta.get("spatial_conditioning"))
+    validate_conditioning_record(spatial, {**meta, "width": width, "height": height})
+    validate_import_record(meta)
     with _write_lock, _session() as conn:
         row = _insert_row(
             conn,
             {
                 "filename": filename,
+                "imported_name": meta.get("imported_name"),
                 "prompt": meta["prompt"],
                 "negative_prompt": meta.get("negative_prompt"),
                 "width": width,
@@ -1409,6 +1474,7 @@ def index_file(
                 "edit": edit,
                 "detailer": detailer,
                 "tiled_refine": tiled_refine_key(tiled),
+                "spatial_conditioning": conditioning_json(spatial),
                 "vram_peak_allocated": _peak(meta.get("vram_peak_allocated")),
                 "vram_peak_reserved": _peak(meta.get("vram_peak_reserved")),
                 "mask_crop": crop[0].key() if crop is not None else None,

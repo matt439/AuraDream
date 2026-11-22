@@ -37,6 +37,8 @@ def stand_in(request: GenerateRequest, spec: ThenRefine) -> GenerateRequest:
     request with the record's own id."""
     if request.edit is not None:
         raise ValueError("Then refine cannot follow an instruction edit")
+    if request.spatial_conditioning is not None:
+        raise ValueError("Refine the saved image separately when using spatial conditioning.")
     width, height = scaled(request.width, request.height, spec.scale)
     return request.model_copy(update={
         "width": width, "height": height, "num_images": 1, "runs": 1,
@@ -61,27 +63,33 @@ def execution_units(
     return units
 
 
-def refusal(requests: list[GenerateRequest], spec: ThenRefine, unavailable: str | None) -> str | None:
+def refusal(
+    requests: list[GenerateRequest], spec: ThenRefine, unavailable: str | None,
+    *, model_id: str | None = None,
+) -> str | None:
     """Why these cells cannot each be followed by a pass, in words, or None.
     `unavailable` is `submission.refine_unavailable`'s answer."""
     if unavailable is not None:
         return unavailable
+    model_id = model_id if model_id is not None else current_model_id(settings)
     seen = set()
     for request in requests:
         if request.edit is not None:
             return "Then refine cannot follow an instruction edit"
+        if request.spatial_conditioning is not None:
+            return "Refine the saved image separately when using spatial conditioning."
         if request.refine is not None:
             what = (
                 "an outpaint" if request.outpaint is not None
                 else "an inpaint" if request.mask is not None else "a refine pass"
             )
             return f"Then refine follows a direct render; this is already {what} of #{request.refine}"
-        if refine_qualification.applies(current_model_id(settings)):
+        if refine_qualification.applies(model_id):
             # Validate every base, including later CFG/strength cells sharing
             # one size. The stand-in id is never opened as a gallery source.
             probe = stand_in(request, spec)
-            bounded = (refine_qualification.request_refusal(current_model_id(settings), probe)
-                       or refine_qualification.source_refusal(current_model_id(settings), (request.width, request.height)))
+            bounded = (refine_qualification.request_refusal(model_id, probe)
+                       or refine_qualification.source_refusal(model_id, (request.width, request.height)))
             if bounded is not None:
                 return bounded
         key = request.width, request.height, request.steps

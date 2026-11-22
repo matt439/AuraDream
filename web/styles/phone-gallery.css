@@ -450,7 +450,7 @@
     width: 100%; min-width: 0; height: var(--h-md); padding: 0 var(--sp-3); font-size: var(--fs-md);
     border-radius: var(--r-md);
   }
-  #sheet-controls > :is(.sheet-zoom, .sheet-fill, .sheet-export, .sheet-cfg-swipe, .sheet-steps-swipe) { display: none; }
+  #sheet-controls > :is(.sheet-zoom, .sheet-fill, .sheet-export, .sheet-cfg-swipe, .sheet-steps-swipe, .sheet-blind-compare) { display: none; }
   #sheet-controls > .sheet-run-status { grid-column: 1 / -1; font-size: var(--fs-body-sm); }
 
   /* The foot: over the tab bar while a sheet is shown in the Gallery view

@@ -190,10 +190,10 @@ function imageItems({ kind, rec, host }) {
     }] : []),
     sheet ? syncedItem('↻ Reuse settings', (b) => syncReuseButton(b, rec, true), () => reuse(rec), 'U')
       : buttonItem('↻ Reuse settings', lightbox ? els.lbReuse : find('.reuse-settings'), 'U'),
-    {
+    ...(!rec.imported_name ? [{
       label: 'Use seed', title: `Put ${rec.seed} in the Seed box`,
       run: () => { useSeed(rec.seed); cardNote(host, lightbox ? `Seed ${rec.seed} is in the Seed box.` : 'Seed set'); },
-    },
+    }] : []),
     usePromptItem(rec, host, lightbox),
     // The lightbox's button where it has one; held as it would be elsewhere.
     lightbox ? buttonItem('More seeds of this batch…', els.lbMoreSeeds, 'M')
@@ -212,7 +212,9 @@ function imageItems({ kind, rec, host }) {
       ? [syncedItem('✎ Edit by instruction…', (b) => syncEditTool(b, rec), () => editFromCard(rec))] : []),
     syncedItem(at >= 0 ? `❐ Remove reference ${at + 1}` : '❐ Use as reference',
       (b) => syncReferenceTool(b, rec.id), () => toggleReference(host, rec)),
-    shown ? {
+    rec.imported_name ? {
+      label: '⊞ Show run as sheet', held: true, title: 'Imported images have no run', run: () => showRecordRun(rec),
+    } : shown ? {
       label: '⊞ Show run as sheet', held: true, title: SHEET_SHOWS_RUN,
       run: () => refuseInCard(host, `${SHEET_SHOWS_RUN}.`, 'Shown already'),
     } : { label: '⊞ Show run as sheet', title: 'Show the run that made this as a sheet', run: () => showRecordRun(rec) },
@@ -223,11 +225,14 @@ function imageItems({ kind, rec, host }) {
       run: () => pickRun(rec),
     }] : []),
     null,
-    copyItem('Copy prompt', 'Copy the prompt as text', () => navigator.clipboard.writeText(rec.prompt), host, 'Prompt copied', rec),
-    copyItem('Copy seed', `Copy ${rec.seed}`, () => navigator.clipboard.writeText(String(rec.seed)), host, 'Seed copied', rec),
+    ...(!rec.imported_name ? [
+      copyItem('Copy prompt', 'Copy the prompt as text', () => navigator.clipboard.writeText(rec.prompt), host, 'Prompt copied', rec),
+      copyItem('Copy seed', `Copy ${rec.seed}`, () => navigator.clipboard.writeText(String(rec.seed)), host, 'Seed copied', rec),
+    ] : []),
     copyItem('Copy image', 'Copy the full-size PNG as a picture', () => copyImage(rec), host, 'Image copied', rec),
     {
-      label: 'Open PNG in new tab', title: 'The full-size PNG, with its settings in its text chunks',
+      label: 'Open PNG in new tab', title: rec.imported_name ? 'The full-size imported image'
+        : 'The full-size PNG, with its settings in its text chunks',
       run: () => window.open(rec.url, '_blank', 'noopener'),
     },
     null,
@@ -254,7 +259,7 @@ function pickedItems() {
   };
   return [
     { heading: n === 1 ? '1 picked' : `${n} picked` },
-    pick('star'), pick('unstar'), pick('compare'), pick('review'), pick('tier'), pick('seeds'), pick('bin'),
+    pick('star'), pick('unstar'), pick('compare'), pick('review'), pick('blind'), pick('tier'), pick('seeds'), pick('bin'),
     null,
     // The head's exact-size Re-render, shown while it takes the picks.
     buttonItem(els.rerender.textContent, els.rerender),

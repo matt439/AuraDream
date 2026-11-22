@@ -203,6 +203,7 @@ function openRefine(rec, pass = null) {
   refineTiledCheck = null;
   const prefs = refinePrefs();
   const from = pass ?? rec;
+  const imported = !!from.imported_name;
   const anchors = ['center', 'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
   // A missing anchor on an old/centered pass is center, not a new pass's
   // remembered choice: Reuse must keep the framing that made this image.
@@ -219,7 +220,7 @@ function openRefine(rec, pass = null) {
   els.refineReused.hidden = !pass;
   showRefineSource();
   writeRefineSourceLine(rec);
-  els.refinePromptLine.textContent = rec.prompt;
+  els.refinePromptLine.textContent = rec.imported_name || rec.prompt;
   // Rebuilt by syncRefine for this source's size.
   els.refineScales.textContent = '';
   refineComparing = false;
@@ -263,13 +264,13 @@ function openRefine(rec, pass = null) {
   }
   els.refineVersions.value = !pass && ['1', '2', '4'].includes(String(prefs.versions))
     ? String(prefs.versions) : '1';
-  els.refineSeed.value = from.seed;
-  els.refinePrompt.value = from.prompt;
-  els.refineNegative.value = from.negative_prompt ?? '';
+  els.refineSeed.value = imported ? '' : from.seed;
+  rewriteBox(els.refinePrompt, imported ? els.prompt.value : from.prompt);
+  rewriteBox(els.refineNegative, imported ? els.negative.value : from.negative_prompt ?? '');
   const d = lastDefaults;
-  els.refineSteps.value = foreign ? (d?.steps ?? 28) : from.steps;
-  els.refineCfg.value = foreign ? (d?.guidance_scale ?? 3.5) : from.guidance_scale;
-  els.refineMu.value = foreign ? (d?.mu ?? '') : (from.mu ?? '');
+  els.refineSteps.value = foreign || imported ? (d?.steps ?? 28) : from.steps;
+  els.refineCfg.value = foreign || imported ? (d?.guidance_scale ?? 3.5) : from.guidance_scale;
+  els.refineMu.value = foreign || imported ? (d?.mu ?? '') : (from.mu ?? '');
   // The scale the negative prompt ran at, where True CFG is a knob of its
   // own; on a checkpoint whose CFG is real CFG the record's value is the CFG.
   els.refineTrueCfg.value = !foreign && trueCfgSupported && from.true_cfg != null ? from.true_cfg : '';
@@ -289,12 +290,12 @@ function openRefine(rec, pass = null) {
   // Mu named only where its box can be checked, as Reuse's note does
   // (reuseIntoPanel): it is greyed on every checkpoint without one.
   const knobs = ['steps', 'CFG', ...(muSupported ? ['mu'] : []), ...(pass ? ['strength'] : [])];
-  els.refineMoreNote.textContent = foreign
+  els.refineMoreNote.textContent = imported ? `Sampling starts with ${checkpointName(loadedModel)}'s defaults` : foreign
     ? `made on ${checkpointName(from.model_id)}: ${knobs.slice(0, -1).join(', ')} and ${knobs.at(-1)} are `
       + `${checkpointName(loadedModel)}'s`
     : `as #${from.id} was made`;
   // Open where they could not carry over, so the substitution is seen.
-  els.refineMore.open = foreign;
+  els.refineMore.open = foreign || imported;
   refineFilled = refineValues();
   if (draft) applyRefineValues(draft.values);
   els.refineDraft.hidden = !draft;
@@ -333,7 +334,7 @@ function openRefine(rec, pass = null) {
 // viewer and the lightbox say it.
 function writeRefineSourceLine(rec, gone = null) {
   els.refineSourceLine.textContent = [
-    `${rec.width}×${rec.height}`, `seed ${rec.seed}`, checkpointName(rec.model_id),
+    `${rec.width}×${rec.height}`, ...(rec.imported_name ? ['Imported image'] : [`seed ${rec.seed}`, checkpointName(rec.model_id)]),
     rec.tiled_refine ? `itself a Tiled Refine of ${tiledSourceName(rec)}` : '',
     rec.refine != null ? `itself a refine of #${rec.refine}${rec.refine_missing ? `, since ${rec.refine_binned ? 'binned' : 'deleted'}` : ''}` : '',
     gone ? `#${rec.id} (${gone === 'binned' ? 'in the recycle bin' : 'deleted'})` : '',
@@ -563,7 +564,7 @@ function syncRefine() {
     ? (versions > 1 ? `${versions} seeds counting up from a random one` : 'a random seed')
     : versions > 1 ? `seeds ${seed}-${seed + versions - 1}` : `seed ${seed}`;
   const every = refineTiled ? '' : [sweep ? 'strength' : '', comparing ? 'size' : ''].filter(Boolean).join(' and ');
-  els.refineSeedHint.textContent = `${seeds}${seed === src.seed ? ", from the source's" : ''}`
+  els.refineSeedHint.textContent = `${seeds}${!src.imported_name && seed === src.seed ? ", from the source's" : ''}`
     + (every ? `, at every ${every}` : '');
 
   // The negative prompt, Mu and True CFG by the panel's rules (syncCfg,

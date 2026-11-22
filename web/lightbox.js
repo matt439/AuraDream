@@ -555,7 +555,7 @@ function renderLightbox() {
   if (lbCompareSaid && lbCompareSaid.id !== rec.id) lbCompareSaid = null;
   // The gallery is asked for this image's other CFG values and step counts
   // a moment after it lands (lightbox-cfg.js), as for its passes.
-  askLadder(rec);
+  if (!rec.imported_name) askLadder(rec);
   const aspect = rec.width / rec.height;
   if (lbView.aspect === null || Math.abs(aspect - lbView.aspect) / lbView.aspect >= 0.01) {
     lbView.scale = 1; lbView.x = lbView.y = 0;
@@ -565,8 +565,8 @@ function renderLightbox() {
   }
   lbView.aspect = aspect;
   showLightboxImage(rec);
-  els.lbImg.alt = rec.prompt;
-  els.lbPrompt.textContent = rec.prompt;
+  els.lbImg.alt = rec.imported_name ? `Imported image, ${rec.imported_name}` : rec.prompt;
+  els.lbPrompt.textContent = rec.imported_name || rec.prompt;
   // An edit's prompt is its instruction, and says so (instruction-edit.css).
   els.lbPrompt.classList.toggle('instruction', rec.edit != null);
   els.lbDesc.textContent = settingsLine(rec);
@@ -581,7 +581,9 @@ function renderLightbox() {
   }
   if (lbDrawn !== rec || !els.lbSettings.firstChild) {
     lbDrawn = rec;
-    els.lbSettings.replaceChildren(promptSearchLine(rec), factsList(rec, { useSeed: true, search: true, megapixels: true }), passesLine(rec));
+    els.lbSettings.replaceChildren();
+    if (!rec.imported_name) els.lbSettings.append(promptSearchLine(rec));
+    els.lbSettings.append(factsList(rec, { useSeed: true, search: true, megapixels: true }), passesLine(rec));
   }
   // A live region, written only when its words change: a star, a status or
   // a delete elsewhere re-renders the same image, and each rewrite said the
@@ -655,6 +657,7 @@ function lightboxCount(rec) {
 // press, so walking while its fetch is pending cannot give another image
 // its filename.
 function lightboxFileName(rec) {
+  if (rec.imported_name) return rec.filename;
   const model = String(rec.model_id).split('/').pop().replace(/[^\w.-]+/g, '-')
     .replace(/^[.-]+|[.-]+$/g, '').slice(0, 100) || 'model';
   return `${rec.id}-${model}-${rec.seed}.png`;

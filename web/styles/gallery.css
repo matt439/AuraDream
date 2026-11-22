@@ -398,6 +398,42 @@
 /* The frequent footer actions keep a stable small-button target in every
    state, including Bundles whose zero vertical padding lives in bundles.css. */
 .gallery-footer :is(.foot-btn, #btn-bundles) { min-height: var(--h-sm); }
+#btn-gallery-import .short { display: none; }
+@container gallery-footer (max-width: 799px) {
+  #btn-gallery-import .full { display: none; }
+  #btn-gallery-import .short { display: inline; }
+  #btn-gallery-import { min-width: 24px; padding-inline: 3px; }
+}
+/* Give the picked count its usual room in the narrow column beside the viewer. */
+@media (min-width: 1800px) and (not (pointer: coarse)) {
+  .stage.beside .gallery-footer :is(#btn-swap, #btn-refine-batch, #btn-more-seeds, #btn-bundles) {
+    padding-inline: var(--sp-1);
+  }
+}
+.gallery-import-dialog {
+  width: min(480px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: var(--panel-pad);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+.gallery-import-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.gallery-import-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.gallery-import-head, .gallery-import-actions {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+}
+.gallery-import-head h2 { margin: 0; font-size: var(--fs-lg); }
+.gallery-import-drop {
+  padding: var(--sp-4);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+}
+.gallery-import-drop p { margin: var(--sp-2) 0 0; }
+#gallery-import-run { margin-left: auto; }
+#gallery-import-status { margin: 0; min-height: 1lh; overflow-wrap: anywhere; }
 /* The count gives way before the buttons do, so a narrow footer never runs
    past its column, but after the message beside it (whose shrink is a
    thousand times its own, #gallery-error). It is the one

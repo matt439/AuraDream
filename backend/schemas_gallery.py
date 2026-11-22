@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 from .config import settings
 from .execution import ExecutionSpec, canonical_execution
@@ -18,6 +18,7 @@ from .metadata import validate_detailer_record, validate_edit_record, validate_t
 from .schemas_generate import CropAnchor
 from .schemas_mask_crop import MaskCropSpec
 from .schemas_outpaint import OutpaintSpec
+from .spatial_conditioning import SpatialConditioning
 from .tiled_refine_contract import StoredTiledRefine
 
 class ImageRecord(BaseModel):
@@ -27,6 +28,8 @@ class ImageRecord(BaseModel):
     # A ~384 px WEBP beside the PNG, for the cards and the sheet. Null for rows
     # written before it existed; the client then shows the PNG.
     thumb_url: str | None = None
+    # Original display name for a user-imported source. Null on generated images.
+    imported_name: str | None = None
     prompt: str
     negative_prompt: str | None
     # The prompt-variable assignment that made this cell - `{"size": "big",
@@ -97,6 +100,7 @@ class ImageRecord(BaseModel):
     edit: StoredInstructionEdit | None = None
     detailer: StoredDetailer | None = None
     tiled_refine: StoredTiledRefine | None = None
+    spatial_conditioning: SpatialConditioning | None = None
     edit_missing: bool = False
     edit_binned: bool = False
     # Derived source availability, never part of the stored Tiled Refine proof.
@@ -139,6 +143,12 @@ class ImageRecord(BaseModel):
     # `created_at`; None while it is live. Only the bin's own listing and
     # `GET /api/images/{id}?binned=true` serve a record with one.
     binned_at: str | None = None
+
+    @computed_field
+    @property
+    def seed_decimal(self) -> str:
+        """The complete seed for browser comparisons beyond JS integer precision."""
+        return str(self.seed)
 
     @field_validator("execution", mode="before")
     @classmethod

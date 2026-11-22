@@ -303,12 +303,17 @@ function submitHold({ composer = false } = {}) {
     : composer ? executionSubmitHold() : executionLoadHold();
 }
 
+function syncGenerateButton(base = submitHold({ composer: true })) {
+  syncSpatialConditioning();
+  const why = base || spatialConditioningSubmitHold();
+  els.generate.setAttribute('aria-disabled', String(submitting || !!why));
+  els.generate.title = why || GENERATE_TITLE + thenRefineTitleSuffix();
+}
+
 function syncSubmitButtons() {
-  const why = submitHold({ composer: true });
-  const held = String(submitting || !!why);
-  els.generate.setAttribute('aria-disabled', held);
-  els.generate.title = why || GENERATE_TITLE;
-  syncGridRun(why);
+  const base = submitHold({ composer: true });
+  syncGenerateButton(base);
+  syncGridRun(base);
   // The Refine dialogs' Refine say the same while the server is gone, and
   // the comparison's Run as Generate does.
   syncRefineRun();
@@ -586,8 +591,12 @@ function generate({ onRefused = null } = {}) {
   // in the server's words, and sends nothing.
   if (textToImageReason) { showError(textToImageReason); return undefined; }
   if (refuseComposerExecution()) return undefined;
+  const spatialHold = spatialConditioningSubmitHold();
+  if (spatialHold) { showError(spatialHold); return undefined; }
   if (refuseBadNumber(panelNumberInputs())) return undefined;
   const body = collect();
+  const spatial = composerSpatialConditioning();
+  if (spatial) body.spatial_conditioning = spatial;
   if (els.gridSection.open && els.gridPrompt.value.trim()
       && GRID_PLACEHOLDER.test(`${body.prompt}\n${body.negative_prompt ?? ''}`)) {
     showError('Run grid fills the {placeholders}; Generate would render the braces.');

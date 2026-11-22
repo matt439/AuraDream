@@ -98,7 +98,7 @@ function syncCompareRun() {
   els.compareRun.disabled = count < 2 || analysisStale;
   // Held like Generate and Run grid - the editor on the card, no server -
   // with their reason as its title (submitHold), which only a press said.
-  const why = submitHold({ composer: true });
+  const why = submitHold({ composer: true }) || spatialConditioningGridHold();
   els.compareRun.setAttribute('aria-disabled', String(!!why || submitting));
   els.compareRun.title = analysisStale ? STALE_REASON
     : count < 2 ? 'Needs a second version of the prompt to compare against'
@@ -213,6 +213,8 @@ async function previewComparison() {
 // Generate after it repeated that seed, said only in the run hint's grey.
 function runComparison() {
   if (refuseComposerExecution()) return undefined;
+  const spatialHold = spatialConditioningGridHold();
+  if (spatialHold) { showError(spatialHold); return undefined; }
   const variants = comparedVariants();
   if (!analysisResult || variants.length < 2 || analysisStale) return undefined;
   // The comparison supplies its own Batch and Seeds, and ignores Repeat,

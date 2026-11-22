@@ -3,6 +3,100 @@
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
+let tagSnapshotStatus = null;
+let tagSnapshotBusy = false;
+let tagSnapshotRead = 0;
+let tagSnapshotError = '';
+
+function offlineTagIndexLabel(date) {
+  return `Danbooru snapshot dated ${date}`;
+}
+
+function syncTagSnapshotControls() {
+  const controls = els.tagsMenu.querySelector('[data-tag-snapshot]');
+  if (!controls) return;
+  const state = controls.querySelector('[role="status"]');
+  const download = controls.querySelector('[data-action="download"]');
+  const source = controls.querySelector('[data-action="source"]');
+  const installed = Boolean(tagSnapshotStatus?.snapshot_date);
+  const offline = tagSnapshotStatus?.enabled;
+  state.textContent = tagSnapshotBusy ? 'Updating the tag index…'
+    : tagSnapshotError || tagSnapshotStatus?.detail
+    || (installed
+      ? `${offline ? 'Using' : 'Live lookup is active. Installed'} ${offlineTagIndexLabel(tagSnapshotStatus.snapshot_date)} · ${tagSnapshotStatus.tag_count.toLocaleString()} tags.`
+      : 'Download popular tags and their aliases for offline suggestions and checks. Description search uses the Danbooru wiki.');
+  download.textContent = installed ? 'Refresh offline index' : 'Download offline index';
+  download.title = tagSnapshotBusy ? 'The tag index is being updated' : 'Download a dated index of up to 10,000 popular tags and their aliases';
+  source.textContent = offline ? 'Use live lookup' : 'Use offline index';
+  source.title = tagSnapshotBusy ? download.title : 'Change which Danbooru index supplies suggestions and checks';
+  source.hidden = !installed;
+  for (const button of [download, source]) button.setAttribute('aria-disabled', String(tagSnapshotBusy));
+}
+
+async function readTagSnapshotStatus() {
+  if (tagSnapshotBusy) return;
+  const request = ++tagSnapshotRead;
+  try {
+    const status = await api('/api/tags/snapshot');
+    if (request === tagSnapshotRead) {
+      tagSnapshotStatus = status;
+      tagSnapshotError = '';
+    }
+  } catch (error) {
+    if (request === tagSnapshotRead) tagSnapshotError = error.message;
+  }
+  if (request === tagSnapshotRead) syncTagSnapshotControls();
+}
+
+async function changeTagSnapshot(action, button) {
+  if (tagSnapshotBusy) { showError(button.title, true); return; }
+  tagSnapshotRead += 1;
+  tagSnapshotBusy = true;
+  tagSnapshotError = '';
+  syncTagSnapshotControls();
+  try {
+    tagSnapshotStatus = await api('/api/tags/snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    tagVerdictCache().clear();
+    tagPromptLayout = null;
+    tagSlots = null;
+    tagEditorSuggestionEpoch += 1;
+    hideTagSuggestions();
+    scheduleTagValidation(0);
+  } catch (error) {
+    tagSnapshotError = error.message;
+  } finally {
+    tagSnapshotBusy = false;
+    syncTagSnapshotControls();
+  }
+}
+
+function buildTagSnapshotControls() {
+  const section = document.createElement('section');
+  section.className = 'tag-group';
+  section.dataset.tagSnapshot = '';
+  const options = document.createElement('div');
+  options.className = 'tag-options';
+  for (const name of ['download', 'source']) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ghost tiny';
+    button.dataset.action = name;
+    button.onclick = () => changeTagSnapshot(
+      name === 'download' ? name : tagSnapshotStatus?.enabled ? 'live' : 'offline', button,
+    );
+    options.appendChild(button);
+  }
+  const summary = document.createElement('p');
+  summary.className = 'tag-note';
+  summary.setAttribute('role', 'status');
+  section.append(options, summary);
+  return section;
+}
+
 // Buttons are toggles. Exclusive groups replace an existing person-count or
 // rating tag in place; otherwise insertion follows the textarea caret. Nothing
 // silently reorders free-form character, series, pose or scene tags.
@@ -327,6 +421,11 @@ function buildTagHelper() {
   note.className = 'tag-note';
   note.textContent = tagHelperNote();
   els.tagsMenu.appendChild(note);
+  if (tagHelper.vocabulary === 'danbooru') {
+    els.tagsMenu.appendChild(buildTagSnapshotControls());
+    syncTagSnapshotControls();
+    readTagSnapshotStatus();
+  }
   syncTagSelection();
 }
 

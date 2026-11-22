@@ -684,9 +684,11 @@ function receiveStatus(s, asked = Date.now()) {
     }
     const previousRefineReason = refineUnavailableReason();
     const previousTiledRefineReason = tiledRefineCapabilityReason();
+    const previousRegionReason = regionalPromptsCapabilityReason();
     const refineSuggestionsChanged = receiveRefineStrengthSuggestions(s.refine_strength_suggestions);
     applyDefaults(s.defaults);
-    if (previousTiledRefineReason !== tiledRefineCapabilityReason()) syncReuseButtons();
+    if (previousTiledRefineReason !== tiledRefineCapabilityReason()
+        || previousRegionReason !== regionalPromptsCapabilityReason()) syncReuseButtons();
     // After the profile, so a remembered value set on this checkpoint wins
     // over it and a value set on another is left to the profile.
     if (loadedModel) restoreSampling(loadedModel);
@@ -783,6 +785,7 @@ function receiveStatus(s, asked = Date.now()) {
     if (refineSource) syncRefine();
     // And the inpaint's, with the tools that open it (inpaint.js).
     if (s.defaults) syncInpaintCapability(s.defaults);
+    if (s.controlnet) syncControlNetStatus(s.controlnet);
     // And Edit by instruction's, with Generate held where the checkpoint only
     // edits (instruction-edit.js).
     if (s.defaults) syncEditCapability(s.defaults);

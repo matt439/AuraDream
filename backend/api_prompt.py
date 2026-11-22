@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from . import keep_awake, prompt_check, prompt_encoding, prompt_parts, prompt_text, tag_lookup
+from . import keep_awake, prompt_check, prompt_encoding, prompt_parts, prompt_text, storage, tag_lookup, tag_snapshot
 from .app_context import AppServices
 from .backends.base import Cancelled, ExpansionTooLong
 from .critic import CriticError, CriticUnavailable, pinned_build_refusal
@@ -69,8 +69,9 @@ def tag_helper_config(model_id: str) -> dict:
 def chip_verdicts(model_id: str, helper: dict, request: TagValidationRequest) -> TagValidationResponse:
     """The tag index's verdict on the chips and, given the prompt, their
     order slots. Blocking: the lookup reaches the network."""
+    vocabulary = tag_lookup.active_vocabulary()
     try:
-        results = tag_lookup.lookup_tags(helper, request.tags)
+        results = tag_lookup.lookup_tags(helper, request.tags, vocabulary=vocabulary)
     except TagLookupUnavailable as exc:
         special = tag_lookup.special_tags(helper)
         year = bool(helper.get("year_tag"))
@@ -93,8 +94,9 @@ def chip_verdicts(model_id: str, helper: dict, request: TagValidationRequest) ->
         })
     return TagValidationResponse.model_validate({
         "available": True, "results": results,
+        "snapshot_date": tag_lookup.snapshot_date(vocabulary),
         "parts": prompt_parts.contextual_parts(helper, request.prompt, request.tags, results),
-        **prompt_check.order_slots(model_id, request.prompt, reachable=True)
+        **prompt_check.order_slots(model_id, request.prompt, reachable=True, vocabulary=vocabulary),
     })
 
 
@@ -211,10 +213,16 @@ def create_router(services: AppServices) -> APIRouter:
         # wanted, so nothing is demoted there - and nothing promoted, which
         # no author sentence asks for.
         avoid = set() if box == "negative" else tag_lookup.negative_tags(helper)
+
+        def find_matches() -> tuple[list[dict], str | None]:
+            vocabulary = tag_lookup.active_vocabulary()
+            cutoff = helper["vocabulary_cutoff"]
+            if isinstance(vocabulary, tag_snapshot.OfflineTagVocabulary):
+                return vocabulary.suggest(query, cutoff, artist_only=artist_only), vocabulary.snapshot_date
+            return vocabulary.suggest(query, cutoff), None
+
         try:
-            remote = await asyncio.to_thread(
-                tag_lookup.tag_vocabulary.suggest, query, helper["vocabulary_cutoff"]
-            )
+            remote, snapshot_date = await asyncio.to_thread(find_matches)
         except TagLookupUnavailable as exc:
             return TagSuggestionResponse.model_validate({
                 "available": False,
@@ -229,7 +237,31 @@ def create_router(services: AppServices) -> APIRouter:
                 {**item, "text": prefix + item["text"]} if item["category"] == "artist" else item
                 for item in suggestions
             ]
-        return TagSuggestionResponse.model_validate({"available": True, "suggestions": suggestions})
+        return TagSuggestionResponse.model_validate({
+            "available": True, "suggestions": suggestions, "snapshot_date": snapshot_date,
+        })
+
+    @router.get("/api/tags/snapshot", response_model=tag_snapshot.SnapshotStatus)
+    async def offline_tag_index() -> tag_snapshot.SnapshotStatus:
+        tag_helper_config(services.model_id())
+        return await asyncio.to_thread(tag_snapshot.status, storage.settings.db_path)
+
+    @router.post("/api/tags/snapshot", response_model=tag_snapshot.SnapshotStatus)
+    async def change_offline_tag_index(request: tag_snapshot.SnapshotChange) -> tag_snapshot.SnapshotStatus:
+        tag_helper_config(services.model_id())
+        database = storage.settings.db_path
+
+        def apply() -> tag_snapshot.SnapshotStatus:
+            with keep_awake.busy("updating the offline tag index"):
+                return tag_snapshot.change(database, request)
+
+        try:
+            return await detached(apply, "offline-tag-index")
+        except tag_snapshot.SnapshotError as exc:
+            if exc.status >= 500:
+                log.error("offline tag index update failed: %s", short_error(exc.__cause__ or exc))
+                log.debug("offline tag index update traceback", exc_info=True)
+            raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
 
     @router.get("/api/tags/describe", response_model=TagDescriptionResponse)

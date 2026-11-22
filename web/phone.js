@@ -41,7 +41,8 @@ function phoneHome(node) {
 // (placePhoneNegative). Run grid is in its foot.
 const moreSheetNodes = () => [
   els.samplingSection, els.seed.closest('.sub'), els.runs.closest('.sub'),
-  els.customSize, els.conditioningSection, document.querySelector('.notification-choice'),
+  els.customSize, els.conditioningSection, $('controlnet-section'), $('regional-prompts-section'),
+  document.querySelector('.notification-choice'),
   document.querySelector('.execution-cache-row'), els.gridSection,
 ];
 const moreSheetMoved = () => [...moreSheetNodes(), els.negField, els.dice, els.gridRun];
@@ -397,6 +398,8 @@ function syncMoreOptions() {
     sizePresetMatch() ? '' : `${els.width.value} × ${els.height.value}`,
     els.lora.value || pendingLora ? 'LoRA' : '',
     refs ? `${refs} reference${refs === 1 ? '' : 's'}` : '',
+    regionalPromptsRows().length ? 'region prompts' : '',
+    controlNetSelected() ? 'ControlNet' : '',
     thenRefineOn() ? 'then refine' : '',
     stepCacheValue() ? 'step cache' : '',
     els.gridSection.open ? 'grid' : '',

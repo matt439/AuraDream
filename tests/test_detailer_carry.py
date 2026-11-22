@@ -10,13 +10,13 @@ from PIL import Image
 
 from backend import bundle_images, bundles, png_settings, reindex, storage
 from backend.bundle_common import BundleError
-from backend.detailer import DetailerPlan, DetectorFacts, Region, StoredDetailer, region_mask
+from backend.detailer import CorrectedRegion, DetailerPlan, DetectorFacts, DrawnRegion, Region, StoredDetailer, region_mask
 from backend.instruction_edit import descriptor_from_image
 from backend.schemas import GenerateRequest
 from tests.bundle_helpers import bundle_snapshot, png_metadata, save_source, use_destination
 
 
-def chain(store):
+def chain(store, *, edited=False):
     source = save_source("original", seed=42)
     with Image.open(store.settings.outputs_dir / source.filename) as picture:
         proof = descriptor_from_image(source.filename, picture)
@@ -28,11 +28,17 @@ def chain(store):
         Region(id="face", kind="face", box=(24, 24, 72, 72), confidence=0.9, detector=detector.id),
         Region(id="hand", kind="hand", box=(120, 120, 180, 180), confidence=0.8, detector=detector.id),
     ]
+    if edited:
+        regions = [
+            CorrectedRegion(**regions[0].model_dump(), detected_box=(10, 24, 72, 72), origin="corrected"),
+            DrawnRegion(id="hand", kind="hand", box=regions[1].box, origin="drawn"),
+        ]
     masks = []
     for region in regions:
         with region_mask(256, 256, region, 8, 4) as mask:
             masks.append(store.store_mask(mask)[0])
     plan = DetailerPlan(
+        version="detailer-v2" if edited else "detailer-v1",
         source_id=source.id, source=proof, detectors=[detector], candidates=regions,
         accepted=[region.id for region in regions], masks=masks, padding=8, feather=4,
         threshold=0.5, nms_iou=0.5, base_seed=100,
@@ -69,8 +75,9 @@ def rewrite_detailer(store, record, mutate):
     bundle_images._rewrite_metadata(path, meta)
 
 
-def test_whole_bundle_remaps_full_original_proof_and_direct_chain(store, monkeypatch, tmp_path):
-    source, children = chain(store)
+@pytest.mark.parametrize("edited", [False, True])
+def test_whole_bundle_remaps_full_original_proof_and_direct_chain(store, monkeypatch, tmp_path, edited):
+    source, children = chain(store, edited=edited)
     archive = Path(bundles.export_bundle(keep_gallery=True)["path"])
     target = destination(store, monkeypatch, tmp_path)
     save_source("occupy id", seed=1)
@@ -83,6 +90,7 @@ def test_whole_bundle_remaps_full_original_proof_and_direct_chain(store, monkeyp
     assert first.refine == original.id and last.refine == first.id
     assert first.detailer.plan.source_id == last.detailer.plan.source_id == original.id
     assert last.detailer.plan.source == children[-1].detailer.plan.source
+    assert last.detailer.plan.candidates == children[-1].detailer.plan.candidates
     assert last.detailer.group_id == children[-1].detailer.group_id
     assert png_metadata(target.outputs_dir / last.filename)["detailer"] == last.detailer.model_dump(mode="json")
     before = bundle_snapshot(store)
@@ -110,8 +118,9 @@ def test_child_only_bundle_keeps_unresolved_proof_and_rebuilds_every_mask(store,
 
 
 @pytest.mark.parametrize("database", [False, True])
-def test_reindex_remaps_original_and_preserves_manifest_with_missing_mask_files(store, monkeypatch, tmp_path, database):
-    source, children = chain(store)
+@pytest.mark.parametrize("edited", [False, True])
+def test_reindex_remaps_original_and_preserves_manifest_with_missing_mask_files(store, monkeypatch, tmp_path, database, edited):
+    source, children = chain(store, edited=edited)
     origin = store.settings
     for path in (origin.outputs_dir / storage.MASKS_DIR).glob("*.png"):
         path.unlink()
@@ -125,6 +134,7 @@ def test_reindex_remaps_original_and_preserves_manifest_with_missing_mask_files(
     assert last.detailer.plan.source_id == records[source.filename].id != source.id
     assert last.refine == records[children[0].filename].id
     assert last.detailer.plan.source == children[-1].detailer.plan.source
+    assert last.detailer.plan.candidates == children[-1].detailer.plan.candidates
     assert png_metadata(target.outputs_dir / last.filename)["detailer"] == last.detailer.model_dump(mode="json")
     assert reindex.reindex(origin.outputs_dir, database=origin.db_path if database else None)["present"] == 3
 

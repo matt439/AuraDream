@@ -852,6 +852,7 @@ function inpaintClosed() {
   const src = inpaintSource;
   const ran = inpaintRan || inpaintSending;
   if (maskStroke) endStroke();
+  endMaskPan();
   if (src && !ran) {
     const values = inpaintValues();
     const edited = [...Object.keys(inpaintBoxes()), 'crop'].some((key) => values[key] !== inpaintFilled?.[key]);

@@ -1,0 +1,39 @@
+#regional-prompts-map {
+  position: relative;
+  inline-size: min(100%, 12rem);
+  aspect-ratio: 1;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+}
+
+#regional-prompts-map span {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.regional-prompt-row {
+  min-inline-size: 0;
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+}
+
+.regional-prompt-row legend { padding-inline: var(--sp-1); }
+.regional-prompt-row textarea { display: block; }
+
+.regional-prompt-coordinates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin-block: var(--sp-2);
+}
+
+.regional-prompt-coordinates input { display: block; }
+.regional-prompt-row label { color: var(--text-soft); font-size: var(--fs-label); }

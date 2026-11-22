@@ -46,6 +46,8 @@ from .metadata import require_header_metadata
 from .instruction_edit import StoredInstructionEdit, edit_key
 from .detailer import StoredDetailer, iter_rebuilt_masks, stored_json as detailer_json
 from .metadata import detailer_from_json, edit_from_json, tiled_refine_from_json
+from .controlnet_contract import ControlNetSpec
+from .spatial_conditioning import conditioning_json
 from .tiled_refine_contract import tiled_refine_key
 
 _SUFFIXES = (".zip", bundle_crypto.SUFFIX)
@@ -588,7 +590,7 @@ def _links_outside(rows: list[dict]) -> int:
     return sum(source not in held for row in rows for _, source in bundle_images._image_links(row))
 
 
-def _cyclic_edit_sources(rows: dict[int, dict]) -> set[int]:
+def _cyclic_proven_sources(rows: dict[int, dict]) -> set[int]:
     """Imported dependency cycles never become usable numeric links."""
     cyclic: set[int] = set()
     finished: set[int] = set()
@@ -603,7 +605,8 @@ def _cyclic_edit_sources(rows: dict[int, dict]) -> set[int]:
             seen.add(current)
             path.append(current)
             edit = edit_from_json(rows[current].get("edit"))
-            current = edit.source if edit is not None else None
+            condition = bundle_images._conditioning(rows[current])
+            current = edit.source if edit is not None else condition.source if isinstance(condition, ControlNetSpec) else None
         finished.update(path)
     return cyclic
 
@@ -680,7 +683,9 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
             if ids is not None and rows != chosen:
                 raise BundleChanged("the gallery changed while its bundle was prepared; try again")
             version = 1
-            if any(bundle_images._tiled_refine(row) is not None for row in rows):
+            if any(bundle_images._conditioning(row) is not None for row in rows):
+                version = 4
+            elif any(bundle_images._tiled_refine(row) is not None for row in rows):
                 version = 3
             elif any(bundle_images._edit(row) is not None for row in rows):
                 version = 2
@@ -966,6 +971,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                             bundle_images._edit(existing[row["filename"].casefold()], image.info)
                             bundle_images._detailer(existing[row["filename"].casefold()], image.info)
                             bundle_images._tiled_refine(existing[row["filename"].casefold()], image.info)
+                            bundle_images._conditioning(existing[row["filename"].casefold()], image.info)
                 except (OSError, ValueError, Image.DecompressionBombError) as exc:
                     raise BundleError(f"cannot read existing execution metadata for {target.name}: {exc}") from exc
                 # A present image is kept and its bundle copy never unpacked.
@@ -989,6 +995,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         edit = bundle_images._edit(row, image.info)
                         bundle_images._detailer(row, image.info)
                         bundle_images._tiled_refine(row, image.info)
+                        bundle_images._conditioning(row, image.info)
                     _validate_row(row, width, height, existing[row["filename"].casefold()]["content_hash"])
                     return None, True, execution, edit
                 pixels = _inspect_source(row, data)
@@ -1091,7 +1098,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                 embedded: dict[str, Path] = {}
                 by_id = {r["id"]: r for r in current}
                 source_by_id = {r["id"]: r for r in source_rows}
-                cyclic = _cyclic_edit_sources(source_by_id)
+                cyclic = _cyclic_proven_sources(source_by_id)
                 for original, values in pending:
                     detail = detailer_from_json(values.get("detailer"))
                     if detail is not None:
@@ -1160,6 +1167,19 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         local_id = mapping.get(tiled.source) if proven else None
                         unresolved += local_id is None
                         values["tiled_refine"] = tiled_refine_key(tiled.model_copy(update={"source": local_id}))
+                    condition = bundle_images._conditioning(original)
+                    if isinstance(condition, ControlNetSpec):
+                        source = source_by_id.get(condition.source)
+                        proof = condition.guide
+                        pixels = inspected["images/" + source["filename"]][0] if source is not None else None
+                        proven = (
+                            original["id"] not in cyclic and source is not None and pixels is not None
+                            and source["filename"] == proof.filename and pixels.rgb_hash == proof.hash
+                            and (pixels.width, pixels.height) == (proof.width, proof.height)
+                        )
+                        local_id = mapping.get(condition.source) if proven else None
+                        unresolved += local_id is None
+                        values["spatial_conditioning"] = conditioning_json(condition.model_copy(update={"source": local_id}))
                     refs = _references(original)
                     unresolved += sum(i not in mapping for i in refs)
                     refs = [mapping[i] for i in refs if i in mapping]

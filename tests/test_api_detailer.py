@@ -65,6 +65,10 @@ def queue(client, reviewed, **extra):
     })
 
 
+def edit(client, reviewed, **change):
+    return client.post("/api/detailer/review", json={"receipt": reviewed["receipt"], **change})
+
+
 def test_status_is_cold_and_detection_uses_daemon_without_loading(client, detectors, fake):
     fake.unload()
     assert client.get("/api/detailer/status").json()["supported"]
@@ -110,6 +114,72 @@ def test_empty_detections_and_empty_selection_queue_nothing(client, detectors, f
     count = len(fake.requests)
     assert queue(client, reviewed).status_code == 422
     assert len(fake.requests) == count and not main.jobs.active()
+
+
+@pytest.mark.parametrize("detect_first", [False, True])
+def test_drawn_region_queues_with_or_without_empty_detection(client, detectors, store, detect_first):
+    record = source(client)
+    detectors.empty = True
+    reviewed = (preview(client, record) if detect_first else
+                client.post("/api/detailer/preview", json={"source": record["id"]}).json())
+    assert not reviewed["regions"]
+    box = [30, 20, 72, 93]
+    drawn = edit(client, reviewed, kind="hand", box=box)
+    assert drawn.status_code == 200, drawn.text
+    answer = queue(client, drawn.json())
+    assert answer.status_code == 200, answer.text
+    done = stream_job(client, answer.json()["job_id"])[-1]
+    assert done["detailer"]["completed"] == 1
+    row = store.get_image(done["images"][0]["id"])
+    assert row.refine == record["id"]
+    plan = row.detailer.plan
+    assert plan.version == "detailer-v2"
+    assert bool(plan.detectors) is detect_first
+    region = plan.accepted_regions[0]
+    assert isinstance(region, detailer.DrawnRegion) and list(region.box) == box
+    assert row.mask == plan.masks[0]
+    assert detectors.calls == ([("detect", True)] if detect_first else [])
+
+
+def test_corrected_and_drawn_boxes_follow_new_server_order_and_replace_receipt(client, detectors, store):
+    record = source(client)
+    reviewed = preview(client, record)
+    assert edit(client, reviewed, kind="face", box=[0, 3, record["width"] + 1, 40]).status_code == 422
+    assert edit(client, reviewed, kind="face", box=["0", 3, 30, 40]).status_code == 422
+    corrected = edit(client, reviewed, region_id="face", box=[40, 125, 81, 175]).json()
+    assert queue(client, reviewed).json()["code"] == "detailer_receipt"
+    drawn = edit(client, corrected, kind="face", box=[8, 10, 38, 43]).json()
+    assert [region.get("origin") for region in drawn["regions"]] == ["drawn", "corrected", None]
+    assert [region["box"] for region in drawn["regions"]] == [
+        [8, 10, 38, 43], [40, 125, 81, 175], [96, 64, 176, 144],
+    ]
+    answer = queue(client, drawn, accepted=[region["id"] for region in reversed(drawn["regions"])])
+    assert answer.status_code == 200, answer.text
+    done = stream_job(client, answer.json()["job_id"])[-1]
+    rows = [store.get_image(item["id"]) for item in done["images"]]
+    plan = rows[0].detailer.plan
+    assert plan.accepted == [region["id"] for region in drawn["regions"]]
+    assert isinstance(plan.accepted_regions[1], detailer.CorrectedRegion)
+    assert plan.accepted_regions[1].detected_box == (64, 48, 128, 112)
+    assert [row.mask for row in rows] == plan.masks
+    assert [row.refine for row in rows] == [record["id"], rows[0].id, rows[1].id]
+    assert detectors.calls == [("detect", True)]
+
+
+def test_reset_detected_box_and_remove_drawn_box_restore_original_geometry(client, detectors, store):
+    reviewed = preview(client, source(client))
+    edited = edit(client, reviewed, region_id="face", box=[5, 22, 31, 44]).json()
+    drawn = edit(client, edited, kind="hand", box=[20, 20, 30, 44]).json()
+    added = next(region["id"] for region in drawn["regions"] if region.get("origin") == "drawn")
+    removed = edit(client, drawn, region_id=added).json()
+    reset = edit(client, removed, region_id="face").json()
+    assert reset["regions"] == reviewed["regions"]
+    queued = queue(client, reset)
+    assert queued.status_code == 200, queued.text
+    done = stream_job(client, queued.json()["job_id"])[-1]
+    stored = store.get_image(done["images"][0]["id"]).detailer.plan.model_dump(mode="json")
+    assert stored["version"] == "detailer-v1"
+    assert all("origin" not in region for region in stored["candidates"])
 
 
 def test_engine_failure_is_not_an_empty_success(client, detectors):

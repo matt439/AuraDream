@@ -24,7 +24,9 @@ from .schemas import (
 log = logging.getLogger("auradream")
 
 
-def order_slots(model_id: str, prompt: str | None, reachable: bool) -> dict:
+def order_slots(
+    model_id: str, prompt: str | None, reachable: bool, *, vocabulary: tag_lookup.TagVocabulary | None = None,
+) -> dict:
     """The chips' order slots: each comma item of `prompt` in the step of the
     documented order Check's order rule places it in, with the categories a
     Check of this prompt places with (`tag_lookup.tag_categories`) - Check's reading,
@@ -51,7 +53,7 @@ def order_slots(model_id: str, prompt: str | None, reachable: bool) -> dict:
         order = prompt_rules.documented_order(model_id)
         if order is None or not prompt_rules.places_items(model_id, prompt):
             return {}
-        categories = tag_lookup.tag_categories(model_id, prompt)[0] if reachable else None
+        categories = tag_lookup.tag_categories(model_id, prompt, vocabulary=vocabulary)[0] if reachable else None
         slots = prompt_rules.order_slots(model_id, prompt, categories)
         if slots is None:
             return {}
@@ -200,7 +202,8 @@ def analyse(
     # The shape alone decides whether to ask the tag index; what is reported
     # is the style the rules applied, which the answer's categories can move
     # ("the legend of zelda" is a series, not a phrase).
-    categories, categories_detail, asked = tag_lookup.tag_categories(model_id, prompt)
+    vocabulary = tag_lookup.active_vocabulary()
+    categories, categories_detail, asked = tag_lookup.tag_categories(model_id, prompt, vocabulary=vocabulary)
     reports, findings, detail = checked(model_id, request, applied, categories)
     order = prompt_rules.documented_order(model_id)
     order_checked = order is not None and prompt_rules.order_checked(model_id, prompt)
@@ -215,6 +218,7 @@ def analyse(
         order=order,
         order_checked=order_checked,
         categories_detail=categories_detail,
+        tag_snapshot_date=tag_lookup.snapshot_date(vocabulary) if asked else None,
         order_detail=order_detail(model_id, prompt, categories, categories_detail, asked)
         if order_checked else None,
         categories=categories,

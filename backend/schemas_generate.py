@@ -37,6 +37,7 @@ from .schemas_encoder import GridPromptBudgets
 from .schemas_mask_crop import MASK_CROP_NEEDS_A_MASK, MASK_CROP_WITH_EDIT, MaskCropArea, MaskCropSpec
 from .schemas_outpaint import Outpaint
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
+from .spatial_conditioning import SpatialConditioning, validate_request as validate_spatial_request
 from . import tiled_refine_contract as tiled
 
 if TYPE_CHECKING:
@@ -194,6 +195,7 @@ class GenerateRequest(BaseModel):
     # Frozen detection provenance, never permission to redetect or replay a
     # chain. This request runs exactly one ordinary inpaint of its direct source.
     detailer: StoredDetailer | None = None
+    spatial_conditioning: SpatialConditioning | None = None
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
@@ -237,6 +239,11 @@ class GenerateRequest(BaseModel):
     @model_validator(mode="after")
     def _tiled_refine_uses_its_frozen_recipe(self) -> "GenerateRequest":
         self.validate_tiled_refine()
+        return self
+
+    @model_validator(mode="after")
+    def _spatial_conditioning_uses_direct_generation(self) -> "GenerateRequest":
+        validate_spatial_request(self)
         return self
 
     def validate_detailer(self) -> StoredDetailer | None:
@@ -571,6 +578,7 @@ class GenerateRequest(BaseModel):
         # Also covers internal model_copy requests without revalidating a
         # stamped outpaint (whose derived mask is deliberately post-validation).
         require_default_execution(self.execution)
+        validate_spatial_request(self)
         if self.tiled_refine is not None:
             self.validate_tiled_refine(require_bound=True)
             negative = self.negative_prompt or None

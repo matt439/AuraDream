@@ -28,7 +28,9 @@ function selectEditorSuggestion(menu, index) {
 // `place`, given, positions the list once it is drawn, at its real height.
 // `menu._query` is the item a drawn list answers.
 function renderEditorSuggestions(
-  input, menu, suggestions, { query = input.value, pick = (s) => commitTagEdit(s.text), place = null } = {},
+  input, menu, suggestions, {
+    query = input.value, pick = (s) => commitTagEdit(s.text), place = null, snapshotDate = null,
+  } = {},
 ) {
   menu._suggestions = suggestions;
   menu._query = suggestions.length ? query.trim() : null;
@@ -52,6 +54,9 @@ function renderEditorSuggestions(
     count.className = 'tag-count';
     count.textContent = suggestion.post_count == null ? '' : humanCount(suggestion.post_count);
     item.append(kind, name, count);
+    if (snapshotDate) {
+      item.title = suggestion.category === 'model' ? "Checkpoint author's tag" : offlineTagIndexLabel(snapshotDate);
+    }
     item.onmousedown = (event) => event.preventDefault();
     item.onclick = () => pick(suggestion);
     menu.appendChild(item);
@@ -97,7 +102,7 @@ function scheduleEditorSuggestions(input, menu, options = {}) {
       const body = await api(`/api/tags/suggest?q=${encodeURIComponent(query)}${field}`);
       if (epoch !== tagEditorSuggestionEpoch || !input.isConnected || input.value !== value
         || model !== loadedModel || (options.current && !options.current())) return;
-      renderEditorSuggestions(input, menu, body.suggestions || [], options);
+      renderEditorSuggestions(input, menu, body.suggestions || [], { ...options, snapshotDate: body.snapshot_date });
     } catch {
       if (epoch === tagEditorSuggestionEpoch) renderEditorSuggestions(input, menu, [], options);
     }
