@@ -351,7 +351,9 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         args.cfg = meta.get("guidance_scale")
     # Tiled Refine's recorded effective CFG comes from its negative text;
     # a replay can change that text without carrying a stale effective CFG.
-    if args.true_cfg is None and meta.get("true_cfg") is not None and meta.get("tiled_refine") is None:
+    if args.true_cfg is None and meta.get("true_cfg") is not None and all(
+        meta.get(key) is None for key in ("tiled_refine", "spatial_conditioning")
+    ):
         args.true_cfg = meta["true_cfg"]
     # An explicit null in the record means the image ran with no shift of
     # ours; --mu/--no-mu on the command line still win.

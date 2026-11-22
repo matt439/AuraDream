@@ -724,6 +724,7 @@ function syncMoreSeedsFor(button, rec) {
   syncMoreSeedsTool(button, {
     model: rec.model_id,
     binned: !!rec.binned_at,
+    unavailable: rec.imported_name ? 'An imported image has no batch to extend' : '',
     title: `More images of #${rec.id}'s batch, the seeds following on - each at its own prompt, size, settings and Batch`,
   });
 }

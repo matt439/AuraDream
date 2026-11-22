@@ -36,6 +36,7 @@ from .execution import execution_key
 from .instruction_edit import edit_key
 from .schemas import GenerateRequest, ImageRecord, ThenRefine, error_detail
 from .seeds import wrap_seed
+from .spatial_conditioning import conditioning_key
 from .tiled_refine_contract import tiled_refine_key
 
 # The statuses this module decides; the routes add `foreign`,
@@ -81,7 +82,8 @@ def settings_key(record: ImageRecord) -> tuple:
         grid.shape_key(record.width, record.height, record.crop_anchor),
         record.seed,
     )
-    return grid.with_tiled_refine_key(key, tiled_refine_key(record.tiled_refine))[:-1]
+    recipe = tiled_refine_key(record.tiled_refine) or conditioning_key(record.spatial_conditioning)
+    return grid.with_recipe_key(key, recipe)[:-1]
 
 
 def batch_key(record: ImageRecord) -> tuple:
@@ -207,7 +209,8 @@ def plan(
     template = batch.template
     size, batch.recorded = batch_size(batch.held, fallback)
     fit = fitting(size, template.width, template.height, template.refine)
-    if template.edit is not None or template.detailer is not None or template.tiled_refine is not None:
+    if (template.edit is not None or template.detailer is not None or template.tiled_refine is not None
+            or template.spatial_conditioning is not None):
         fit = 1
     if not batch.recorded:
         batch.notes.append(f"its Batch was not recorded: the panel's {size}")
@@ -216,6 +219,7 @@ def plan(
             "instruction edits run one image per call" if template.edit is not None else
             "detailer passes run one image per call" if template.detailer is not None else
             "Tiled Refine runs one image per queue cell" if template.tiled_refine is not None else
+            "spatial conditioning runs one image per call" if template.spatial_conditioning is not None else
             f"Batch {size} is past the pixel budget at {template.width}×{template.height}: {fit} at a time"
         )
     batch.size = fit

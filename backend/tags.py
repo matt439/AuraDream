@@ -85,6 +85,20 @@ class TagLookupUnavailable(RuntimeError):
     """The external vocabulary could not be reached or returned bad data."""
 
 
+def model_tag_result(tag: str) -> dict:
+    """A name from the checkpoint author's own guide."""
+    return {
+        "tag": tag,
+        "valid": True,
+        "canonical": tag,
+        "source": "model",
+        "category": None,
+        "post_count": None,
+        "reason": None,
+        "code": None,
+    }
+
+
 # The verdicts an alias can answer: a name with no row, or an empty one.
 _ALIASABLE = frozenset({"not_found", "empty"})
 
@@ -175,19 +189,21 @@ def unchecked_results(
     and what needs no index at all: an item longer than any tag."""
     results = []
     for tag in tags:
-        known = is_model_tag(tag, special_tags, allow_year_tag)
-        if not known and too_long(tag):
+        if is_model_tag(tag, special_tags, allow_year_tag):
+            results.append(model_tag_result(tag))
+            continue
+        if too_long(tag):
             results.append(too_long_result(tag))
             continue
         results.append(
             {
                 "tag": tag,
-                "valid": True if known else None,
-                "canonical": tag if known else None,
-                "source": "model" if known else None,
+                "valid": None,
+                "canonical": None,
+                "source": None,
                 "category": None,
                 "post_count": None,
-                "reason": None if known else "Danbooru lookup unavailable",
+                "reason": "Danbooru lookup unavailable",
                 "code": None,
             }
         )
@@ -248,7 +264,7 @@ class DanbooruTagVocabulary:
     def __init__(
         self, fetch_json: Callable[[str, dict[str, str]], list[dict]] | None = None
     ):
-        self._fetch_json = fetch_json or self._request_json
+        self._fetch_json = fetch_json or request_json
         self._lock = threading.Lock()
         self._suggestions: dict[tuple[str, str | None], list[dict]] = {}
         self._descriptions: dict[tuple[str, str | None], list[dict]] = {}
@@ -280,10 +296,10 @@ class DanbooruTagVocabulary:
         seen = set()
         for row in rows:
             name = str(row.get("name", ""))
-            if not name or name in seen or not self._eligible(row, cutoff):
+            if not name or name in seen or not tag_eligible(row, cutoff):
                 continue
             seen.add(name)
-            suggestions.append(self._suggestion(row))
+            suggestions.append(tag_suggestion(row))
         with self._lock:
             self._put(self._suggestions, key, suggestions, 256)
         return [dict(item) for item in suggestions]
@@ -336,8 +352,8 @@ class DanbooruTagVocabulary:
             },
         ) if titles else []
         found = [
-            self._suggestion(row) for row in rows
-            if row.get("name") and int(row.get("category", 0)) == 0 and self._eligible(row, cutoff)
+            tag_suggestion(row) for row in rows
+            if row.get("name") and int(row.get("category", 0)) == 0 and tag_eligible(row, cutoff)
         ]
         # A tag named what was typed leads: "cowlick" is a tag of its own.
         found.sort(key=lambda item: item["canonical"] != exact)
@@ -379,30 +395,14 @@ class DanbooruTagVocabulary:
         results = []
         for tag in tags:
             if is_model_tag(tag, special_tags, allow_year_tag):
-                results.append(
-                    {
-                        "tag": tag,
-                        "valid": True,
-                        "canonical": tag,
-                        "source": "model",
-                        "category": None,
-                        "post_count": None,
-                        "reason": None,
-                        "code": None,
-                    }
-                )
+                results.append(model_tag_result(tag))
                 continue
             name = normalize_tag(tag)
             with self._lock:
                 row = self._records.get(name)
                 consequent = self._aliases.get(name)
                 target = self._records.get(consequent) if consequent else None
-            verdict = self._validation(tag, row, cutoff)
-            if verdict["code"] in _ALIASABLE and consequent and target is not None:
-                canonical = self._validation(display_tag(consequent), target, cutoff)
-                if canonical["valid"]:
-                    verdict = alias_verdict(tag, canonical)
-            results.append(verdict)
+            results.append(tag_verdict(tag, row, target, cutoff))
         return results
 
     def _fetch_records(self, names: list[str]) -> None:
@@ -452,66 +452,6 @@ class DanbooruTagVocabulary:
                 self._put(self._aliases, name, aliases.get(name), 10_000)
 
     @staticmethod
-    def _eligible(row: dict, cutoff: str | None) -> bool:
-        created = str(row.get("created_at") or "")[:10]
-        return (
-            not bool(row.get("is_deprecated"))
-            and int(row.get("post_count", 0)) > 0
-            and (cutoff is None or (bool(created) and created <= cutoff))
-        )
-
-    @staticmethod
-    def _suggestion(row: dict) -> dict:
-        return {
-            "text": display_tag(str(row["name"])),
-            "canonical": str(row["name"]),
-            "category": _CATEGORIES.get(int(row.get("category", 0)), "general"),
-            "post_count": int(row.get("post_count", 0)),
-        }
-
-    def _validation(self, tag: str, row: dict | None, cutoff: str | None) -> dict:
-        # `code` names the reason for the page, which marks a tag too new for
-        # the checkpoint apart from one the index has never heard of: the
-        # fixes differ, and matching on the sentence would break with its
-        # wording.
-        base = {
-            "tag": tag,
-            "valid": False,
-            "canonical": None,
-            "source": None,
-            "category": None,
-            "post_count": None,
-            "reason": "not found in Danbooru",
-            "code": "not_found",
-        }
-        if row is None:
-            return base
-        if bool(row.get("is_deprecated")):
-            return {**base, "reason": "deprecated Danbooru tag", "code": "deprecated"}
-        if int(row.get("post_count", 0)) <= 0:
-            return {**base, "reason": "Danbooru tag has no posts", "code": "empty"}
-        created = str(row.get("created_at") or "")[:10]
-        if cutoff is not None and not created:
-            return {**base, "reason": "Danbooru tag has no creation date", "code": "no_date"}
-        if cutoff is not None and created > cutoff:
-            return {
-                **base,
-                "reason": f"created after this checkpoint's {cutoff} cutoff",
-                "code": "after_cutoff",
-            }
-        suggestion = self._suggestion(row)
-        return {
-            "tag": tag,
-            "valid": True,
-            "canonical": suggestion["text"],
-            "source": "danbooru",
-            "category": suggestion["category"],
-            "post_count": suggestion["post_count"],
-            "reason": None,
-            "code": None,
-        }
-
-    @staticmethod
     def _chunks(
         names: Iterable[str], maximum_encoded_length: int = 1200
     ) -> Iterable[list[str]]:
@@ -533,29 +473,95 @@ class DanbooruTagVocabulary:
             cache.pop(next(iter(cache)))
         cache[key] = value
 
-    @staticmethod
-    def _request_json(path: str, params: dict[str, str]) -> list[dict]:
-        url = f"{_API_BASE}{path}?{urlencode(params)}"
-        request = Request(url, headers={"User-Agent": "AuraDream/0.1 tag-helper"})
-        try:
-            # The origin and path are module constants; user text is query data.
-            with urlopen(request, timeout=5) as response:
-                payload = response.read(1_000_001)
-        # HTTPException: a reply cut off mid-body (IncompleteRead) or a
-        # malformed status line is no more an answer than a refused connection.
-        except (HTTPError, URLError, TimeoutError, OSError, HTTPException) as exc:
-            raise TagLookupUnavailable(str(exc) or type(exc).__name__) from exc
-        if len(payload) > 1_000_000:
-            raise TagLookupUnavailable(
-                "Danbooru returned an unexpectedly large response"
-            )
-        try:
-            data = json.loads(payload)
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise TagLookupUnavailable("Danbooru returned invalid JSON") from exc
-        if not isinstance(data, list):
-            raise TagLookupUnavailable("Danbooru returned an unexpected response")
-        return data
+def tag_eligible(row: dict, cutoff: str | None) -> bool:
+    created = str(row.get("created_at") or "")[:10]
+    return (
+        not bool(row.get("is_deprecated"))
+        and int(row.get("post_count", 0)) > 0
+        and (cutoff is None or (bool(created) and created <= cutoff))
+    )
+
+def tag_suggestion(row: dict) -> dict:
+    return {
+        "text": display_tag(str(row["name"])),
+        "canonical": str(row["name"]),
+        "category": _CATEGORIES.get(int(row.get("category", 0)), "general"),
+        "post_count": int(row.get("post_count", 0)),
+    }
+
+def _tag_validation(tag: str, row: dict | None, cutoff: str | None) -> dict:
+    # `code` names the reason for the page, which marks a tag too new for
+    # the checkpoint apart from one the index has never heard of: the
+    # fixes differ, and matching on the sentence would break with its
+    # wording.
+    base = {
+        "tag": tag,
+        "valid": False,
+        "canonical": None,
+        "source": None,
+        "category": None,
+        "post_count": None,
+        "reason": "not found in Danbooru",
+        "code": "not_found",
+    }
+    if row is None:
+        return base
+    if bool(row.get("is_deprecated")):
+        return {**base, "reason": "deprecated Danbooru tag", "code": "deprecated"}
+    if int(row.get("post_count", 0)) <= 0:
+        return {**base, "reason": "Danbooru tag has no posts", "code": "empty"}
+    created = str(row.get("created_at") or "")[:10]
+    if cutoff is not None and not created:
+        return {**base, "reason": "Danbooru tag has no creation date", "code": "no_date"}
+    if cutoff is not None and created > cutoff:
+        return {
+            **base,
+            "reason": f"created after this checkpoint's {cutoff} cutoff",
+            "code": "after_cutoff",
+        }
+    suggestion = tag_suggestion(row)
+    return {
+        "tag": tag,
+        "valid": True,
+        "canonical": suggestion["text"],
+        "source": "danbooru",
+        "category": suggestion["category"],
+        "post_count": suggestion["post_count"],
+        "reason": None,
+        "code": None,
+    }
+
+def request_json(path: str, params: dict[str, str]) -> list[dict]:
+    url = f"{_API_BASE}{path}?{urlencode(params)}"
+    request = Request(url, headers={"User-Agent": "AuraDream/0.1 tag-helper"})
+    try:
+        # The origin and path are module constants; user text is query data.
+        with urlopen(request, timeout=5) as response:
+            payload = response.read(1_000_001)
+    # HTTPException: a reply cut off mid-body (IncompleteRead) or a
+    # malformed status line is no more an answer than a refused connection.
+    except (HTTPError, URLError, TimeoutError, OSError, HTTPException) as exc:
+        raise TagLookupUnavailable(str(exc) or type(exc).__name__) from exc
+    if len(payload) > 1_000_000:
+        raise TagLookupUnavailable(
+            "Danbooru returned an unexpectedly large response"
+        )
+    try:
+        data = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TagLookupUnavailable("Danbooru returned invalid JSON") from exc
+    if not isinstance(data, list):
+        raise TagLookupUnavailable("Danbooru returned an unexpected response")
+    return data
+
+
+def tag_verdict(tag: str, row: dict | None, target: dict | None, cutoff: str | None) -> dict:
+    verdict = _tag_validation(tag, row, cutoff)
+    if verdict["code"] in _ALIASABLE and target is not None:
+        canonical = _tag_validation(display_tag(target["name"]), target, cutoff)
+        if canonical["valid"]:
+            return alias_verdict(tag, canonical)
+    return verdict
 
 
 tag_vocabulary = DanbooruTagVocabulary()

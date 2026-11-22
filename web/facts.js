@@ -14,6 +14,7 @@ function upscalerName(name) {
 // reader, and what the delete confirm names an image by - the cells of a
 // sweep share a prompt and a seed, and differ only here.
 function settingsLine(rec) {
+  if (rec.imported_name) return `Imported image, ${rec.imported_name}, ${rec.width}×${rec.height}`;
   return (
     // The checkpoint is part of the reproduction set as much as the seed is -
     // the same prompt and settings on Turbo and on FLUX are different images.
@@ -78,9 +79,15 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
     dl.append(div);
     return dd;
   };
+  const size = `${rec.width}×${rec.height}` + (megapixels ? ` (${(rec.width * rec.height / 1e6).toFixed(1)} MP)` : '');
+  if (rec.imported_name) {
+    row('Source', 'Imported image');
+    row('Size', size);
+    return dl;
+  }
   // The running checkpoint by the catalogue's name, as the topbar has it (checkpointName).
   row('Model', [checkpointName(rec.model_id), rec.quantization].filter(Boolean).join(' · ')).title = rec.model_id;
-  row('Size', `${rec.width}×${rec.height}` + (megapixels ? ` (${(rec.width * rec.height / 1e6).toFixed(1)} MP)` : ''));
+  row('Size', size);
   // An instruction edit's recipe has a guidance and no Mu or negative.
   row('Sampling', (rec.edit != null ? [`${rec.steps} steps`, `guidance ${rec.guidance_scale}`] : [
     `${rec.steps} steps`, `CFG ${rec.guidance_scale}`,
@@ -104,6 +111,17 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
     row('Tiled Refine', 'Source ', tiledSourceLink(rec), ...restore).title = rec.tiled_refine.recipe;
   }
   if (rec.negative_prompt) row('Negative', negativeShown(rec.negative_prompt)).className = 'text';
+  if (rec.spatial_conditioning?.kind === 'regional_prompts') {
+    for (const [index, region] of rec.spatial_conditioning.regions.entries()) {
+      const bounds = `${region.left}%, ${region.top}% to ${region.right}%, ${region.bottom}%`;
+      row(`Region ${index + 1}`, `${region.prompt} · ${bounds}`).className = 'text';
+    }
+  }
+  if (rec.spatial_conditioning?.kind === 'controlnet') {
+    const { mode, source, strength, weight_revision: revision } = rec.spatial_conditioning;
+    const guide = source == null ? 'guide unresolved' : `guide #${source}`;
+    row('ControlNet', `${mode === 'pose' ? 'Pose' : 'Depth'} · ${guide} · strength ${strength}`).title = revision;
+  }
   if (rec.lora) row('LoRA', `${rec.lora} @ ${rec.lora_scale}`);
   if (rec.reference?.length) row('References', referenceThumbs(rec));
   if (rec.upscaler) row('Upscaler', upscalerName(rec.upscaler));
@@ -474,6 +492,7 @@ async function confirmTiledSource(rec) {
 // gone, "(in the recycle bin)" where it waits there (goneWord), as the
 // lightbox's facts say it.
 function cardTitle(rec) {
+  if (rec.imported_name) return `#${rec.id} · ${rec.width}×${rec.height} · Imported\n${rec.imported_name}`;
   const pass = rec.refine != null
     ? ` · ${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}`
     // An instruction edit says its source, gone or not, as a pass does.

@@ -50,7 +50,10 @@ async def more_seeds_plan(
     mine: list[more_seeds.Batch] = []
     for batch in batches:
         made_on = batch.template.model_id
-        if made_on != running:
+        if batch.template.imported_name is not None:
+            batch.status = "invalid"
+            batch.detail = "This imported source has no seed. Use Refine to make a new image from it."
+        elif made_on != running:
             # Steps, CFG and mu are the checkpoint's: refused as Re-render
             # refuses them, but per batch.
             batch.status = "foreign"
@@ -163,6 +166,7 @@ async def _carry_then_refine(services: AppServices, queued: list[more_seeds.Batc
     the rest still queue."""
     bases = [batch for batch in queued if (
         batch.template.refine is None and batch.template.edit is None and batch.template.tiled_refine is None
+        and batch.template.spatial_conditioning is None
     )]
     job_ids = sorted({record.job_id for batch in bases for record in batch.held if record.job_id})
     retained = await asyncio.to_thread(storage.retained_run_metadata, job_ids) if job_ids else {}

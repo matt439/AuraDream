@@ -20,6 +20,7 @@ from backend.metadata import (
     canonical_detailer, canonical_edit, canonical_tiled_refine, validate_detailer_record, validate_tiled_refine_record,
 )
 from backend.refine import CROP_ANCHORS
+from backend.spatial_conditioning import canonical_conditioning, validate_record as validate_conditioning_record
 
 if TYPE_CHECKING:
     from .schemas_generate import CropAnchor
@@ -77,6 +78,8 @@ def record(chunks: Mapping[str, Any], name: str, *, for_cli: bool = False) -> di
         raise PngSettingsError(f"the AuraDream metadata in {name} is not JSON") from None
     if not isinstance(meta, dict):
         raise PngSettingsError(f"the AuraDream metadata in {name} is not a settings record")
+    if meta.get("imported_name") is not None:
+        raise PngSettingsError(f"{name} is an imported gallery source and has no generation settings")
     try:
         if canonical_edit(meta.get("edit")) is not None:
             raise ValueError("instruction-edit settings must be reopened from the gallery image")
@@ -88,6 +91,13 @@ def record(chunks: Mapping[str, Any], name: str, *, for_cli: bool = False) -> di
                 "or use --from-image on the command line"
             )
         canonical_execution(meta.get("execution"))
+        spatial = canonical_conditioning(meta.get("spatial_conditioning"))
+        validate_conditioning_record(spatial, meta)
+        if spatial is not None and not for_cli:
+            raise ValueError(
+                "a spatial conditioning recipe. Open Reuse on the saved image "
+                "or use --from-image on the command line"
+            )
         # Loading sampling text never imports the source, masks or operation.
         # Still validate a manifest that is present instead of treating damaged
         # detailer metadata as an unrelated plain-generation settings record.

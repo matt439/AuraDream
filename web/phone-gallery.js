@@ -34,7 +34,7 @@ const galleryFilterPlaces = () => [
 const galleryMorePlaces = () => [
   ['gallery-more-picks', [els.selectCount, els.selectClear, els.picked]],
   ['gallery-more-act', [els.rerender, els.swap, els.refineBatch, els.moreSeeds]],
-  ['gallery-more-library', [els.savedSearches, els.bundles, els.bin]],
+  ['gallery-more-library', [els.savedSearches, $('btn-gallery-import'), els.bundles, els.bin]],
   ['phone-fit-row', [$('card-fit')]],
   ['gallery-more-bin', [els.restorePicked, els.purgePicked, els.binAge, els.emptyBin]],
   ['gallery-more-danger', [els.deleteUnstarred]],

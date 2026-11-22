@@ -423,6 +423,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   box-shadow: var(--shadow-pop);
   color: var(--text); font-size: var(--fs-label); line-height: 1.4; text-align: left;
 }
+#tags-menu { max-height: min(70vh, var(--tag-menu-room, 70vh)); }
 .tag-order { margin: 0 0 6px; color: var(--text-2); }
 .tag-insert { margin: 0 0 10px; color: var(--text); }
 /* The steps the caret line names (tag-helper.js, syncTagSelection): in the
@@ -446,6 +447,12 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-actions button { width: 100%; text-align: left; }
 .tag-menu .ghost.tiny { font-size: var(--fs-sm); }
 .tag-note { margin: 9px 0 0; color: var(--muted); }
+.tag-snapshot > summary { font-size: var(--fs-sm); color: var(--text-2); cursor: pointer; }
+.tag-snapshot > .tag-options { margin-top: var(--sp-1); }
+.tag-snapshot:not([open]) > :not(summary) { display: none; }
+@media (max-height: 900px) {
+  #tags-menu .tag-group + .tag-group { margin-top: var(--sp-1); }
+}
 /* Find tag (tag-finder.js), in the helper's dropdown style: a search row,
    what it found, and each tag's wiki sentence under its button, so a page
    that only mentions the words reads as such. */

@@ -5,7 +5,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .schemas_presets import MAX_PRESET_NAME, MAX_PRESETS, Preset, PresetFields
+from .schemas_presets import (
+    MAX_PRESET_NAME, MAX_PRESETS, SETUP_VERSIONS, Preset, PresetFields, setup_file_version,
+)
 
 PORTABLE_FORMAT = "auradream.generation-presets"
 PORTABLE_FILENAME = "auradream-generation-setups.json"
@@ -27,9 +29,15 @@ class PortablePresets(BaseModel):
     @field_validator("version", mode="before")
     @classmethod
     def supported_version(cls, value: object) -> int:
-        if type(value) is not int or value != 1:
+        if type(value) is not int or value not in SETUP_VERSIONS:
             raise ValueError("unsupported portable setup version")
         return value
+
+    @model_validator(mode="after")
+    def _version_represents_recipes(self) -> PortablePresets:
+        if self.version < setup_file_version(self.items):
+            raise ValueError("Then refine recipes require portable setup version 2")
+        return self
 
 
 class ImportDecision(BaseModel):

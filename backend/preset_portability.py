@@ -17,7 +17,7 @@ from .schemas_preset_portability import (
     MAX_JSON_DEPTH, MAX_PORTABLE_BYTES, PORTABLE_FORMAT,
     ImportDecision, MergeRowResponse, PortablePreset, PortablePresets, PresetImportPreview,
 )
-from .schemas_presets import MAX_PRESETS, Preset
+from .schemas_presets import MAX_PRESETS, Preset, setup_file_version
 from .strict_json import JsonSizeError, JsonSyntaxError, read_utf8_json
 
 
@@ -88,9 +88,10 @@ def _snapshot(items: list[Preset]) -> list[Preset]:
 
 
 def export_portable(items: list[Preset]) -> bytes:
+    snapshot = _snapshot(items)
     payload = validate_payload({
-        "format": PORTABLE_FORMAT, "version": 1,
-        "items": [item.model_dump(include={"name", "model_id", "payload"}) for item in _snapshot(items)],
+        "format": PORTABLE_FORMAT, "version": setup_file_version(snapshot),
+        "items": [item.model_dump(include={"name", "model_id", "payload"}) for item in snapshot],
     })
     return _encoded(payload.model_dump(), pretty=True)
 
@@ -212,7 +213,8 @@ def plan_merge(
     bounded = [item.model_dump() for item in merged] + [
         {**item.model_dump(), "id": "0" * 32, "revision": 1} for item in additions
     ]
-    if len(_encoded({"version": 1, "items": bounded}, pretty=True)) > MAX_PORTABLE_BYTES:
+    version = max(setup_file_version(merged), setup_file_version(additions))
+    if len(_encoded({"version": version, "items": bounded}, pretty=True)) > MAX_PORTABLE_BYTES:
         raise PortabilityError("The merged setups file would exceed 8 MiB.")
     if require_complete and not changed:
         raise PortabilityError("The selected import changes nothing.")

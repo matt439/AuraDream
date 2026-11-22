@@ -110,6 +110,8 @@ class FakeBackend(GenerationBackend):
         # (`instruction_edit_qualified`).
         self.edit_qualified = False
         self.tiled_refine_qualified = False
+        self.controlnet_available = False
+        self.regional_prompts_qualified = False
         # The host the envelope's loader check is told this fake runs on
         # (`instruction_edit_host`): the measured one, so an open gate's
         # answers never depend on the machine the tests run on.
@@ -140,8 +142,18 @@ class FakeBackend(GenerationBackend):
             return tiled.LOADER_REQUIRED
         return None
 
+    def controlnet_qualified(self, mode: str) -> bool:
+        return self.controlnet_available is True and mode in ("pose", "depth")
+
     def refine_host(self) -> tuple[str, str | None, str | None, bool]:
         return self.refine_host_facts
+
+    def regional_prompts_refusal(self, selected, *, check_hardware=True):
+        from backend.spatial_conditioning import MODEL_ID, REGIONAL_LOADER_REQUIRED, REGIONAL_UNAVAILABLE
+
+        if self.regional_prompts_qualified is not True:
+            return REGIONAL_UNAVAILABLE
+        return None if selected.model_id == MODEL_ID else REGIONAL_LOADER_REQUIRED
 
     def _sync_model_profile(self) -> None:
         """Switch the fake's capabilities with the server's selected model.
@@ -336,6 +348,9 @@ class FakeBackend(GenerationBackend):
             if refusal is not None:
                 raise ValueError(refusal)
             bind_source(request.validate_tiled_refine(require_bound=True))
+        if request.spatial_conditioning is not None and request.spatial_conditioning.kind == "regional_prompts":
+            if refusal := self.regional_prompts_refusal(selected):
+                raise ValueError(refusal)
         # A refine pass runs the part of the schedule its strength leaves,
         # once per image, as the real backend's does.
         steps = progress_steps(request)

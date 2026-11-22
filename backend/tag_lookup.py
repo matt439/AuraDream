@@ -15,11 +15,12 @@ from __future__ import annotations
 
 import logging
 
-from . import prompt_rules, prompt_text
+from . import prompt_rules, prompt_text, storage, tag_snapshot
 from .error_text import short_error
 from .model_defaults import guide_for
 from .schemas import TagValidationRequest
 from .tags import (
+    DanbooruTagVocabulary,
     TagLookupUnavailable,
     grid_variable_result,
     is_model_tag,
@@ -30,6 +31,25 @@ from .tags import (
 )
 
 log = logging.getLogger("auradream")
+
+TagVocabulary = DanbooruTagVocabulary | tag_snapshot.OfflineTagVocabulary
+
+
+def active_vocabulary() -> TagVocabulary:
+    try:
+        return tag_snapshot.enabled(storage.settings.db_path) or tag_vocabulary
+    except tag_snapshot.SnapshotError as exc:
+        # A damaged offline index should never silently send names to the web.
+        unavailable = str(exc)
+
+        def refused(_path: str, _params: dict[str, str]) -> list[dict]:
+            raise TagLookupUnavailable(unavailable)
+
+        return DanbooruTagVocabulary(refused)
+
+
+def snapshot_date(index: TagVocabulary) -> str | None:
+    return index.snapshot_date if isinstance(index, tag_snapshot.OfflineTagVocabulary) else None
 
 
 def special_tags(helper: dict) -> set[str]:
@@ -75,7 +95,7 @@ def artist_tag_name(helper: dict, tag: str) -> str | None:
     return None
 
 
-def lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
+def lookup_tags(helper: dict, tags: list[str], *, vocabulary: TagVocabulary | None = None) -> list[dict]:
     """The tag index's verdict on `tags` under this helper's cutoff, special
     tags and year form. Blocking; raises `TagLookupUnavailable`.
 
@@ -96,7 +116,8 @@ def lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
 
     asked = [artist_tag_name(helper, tag) or tag for tag in tags if asks(tag)]
     answers = iter(
-        tag_vocabulary.validate(asked, special, helper["vocabulary_cutoff"], year) if asked else []
+        (vocabulary or active_vocabulary()).validate(asked, special, helper["vocabulary_cutoff"], year)
+        if asked else []
     )
     results = []
     for tag in tags:
@@ -129,7 +150,7 @@ BARE_DANBOORU = {"vocabulary": "danbooru", "vocabulary_cutoff": None}
 
 
 def tag_categories(
-    model_id: str, prompt: str
+    model_id: str, prompt: str, *, vocabulary: TagVocabulary | None = None,
 ) -> tuple[dict[str, str] | None, str | None, list[str]]:
     """Each comma item's Danbooru category, for the order and artist checks,
     or None - why some item a rule reads was never looked up, or None - and
@@ -156,7 +177,7 @@ def tag_categories(
     if not names:
         return None, None, []
     try:
-        results = lookup_tags(helper, names)
+        results = lookup_tags(helper, names, vocabulary=vocabulary)
     except Exception as exc:  # noqa: BLE001 - advisory: a bad reply costs the order checks
         log.info("prompt analysis: tag categories unchecked: %s", short_error(exc))
         if not isinstance(exc, TagLookupUnavailable):

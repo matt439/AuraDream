@@ -51,7 +51,8 @@ function fixture() {
   els.gridSection = { open: true, addEventListener: (event, handler) => calls.toggles.set(event, handler) };
   const sandbox = vm.createContext({ els, calls, trueCfgSupported: false, negativeSupported: true, cfgThreshold: 0,
     diskFreeMb: null, busy: false, elsewhereBusy: false, queuedIds: [], held: false,
-    modelRevision: 1, submitting: false, submitHold: () => '', GRID_RUN_TITLE: 'Run grid', thenRefineTitleSuffix: () => '',
+    modelRevision: 1, submitting: false, submitHold: () => '', spatialConditioningGridHold: () => '',
+    GRID_RUN_TITLE: 'Run grid', thenRefineTitleSuffix: () => '',
     GRID_PLACEHOLDER: /\{[A-Za-z_]\w*\}/,
     document: { createElement: () => element() },
     collect: () => ({ prompt: els.prompt.value, negative_prompt: els.negative.value, num_images: 1,

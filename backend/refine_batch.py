@@ -107,6 +107,10 @@ def plan(
     last, wrapped at the ceiling as a batch's are."""
     width, height = target_size(record, scale)
     out = Planned(record=record, status=QUEUED, width=width, height=height)
+    if record.imported_name is not None:
+        out.status = "invalid"
+        out.detail = "Use Refine to enter a prompt for this imported source."
+        return out
     foreign = record.model_id != running
     out.foreign = foreign
     if (record.refine is not None or record.edit is not None or record.tiled_refine is not None) and skip_passes:
@@ -140,6 +144,7 @@ def plan(
         # another instruction applied to that edit's original input.
         "edit": None,
         "tiled_refine": None,
+        "spatial_conditioning": None,
         "refine": record.id,
         "strength": strength,
         "reference": [],

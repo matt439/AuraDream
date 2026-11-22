@@ -539,6 +539,119 @@
     "expect": "__until(() => !els.setupsDialog.open)"
   },
   {
+    "log": "\"A named Generate and Then refine recipe keeps the chosen scale and strength, the inherited or explicit step count, and the prior composer for Undo.\""
+  },
+  {
+    "eval": "resetPanel(); rewriteBox(els.prompt,'a saved two-stage lighthouse'); els.width.value='512'; els.height.value='512'; els.seed.value='4242'; els.steps.value='8'; own('steps'); els.thenRefine.checked=true; els.thenRefineStrength.value='0.4'; els.thenRefineSteps.value=''; trScale=1.25; syncSize(); syncThenRefine(); window.__priorRefinePrefs=JSON.stringify(refinePrefs());"
+  },
+  {
+    "expect": "__setupOpen()",
+    "fatal": true
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "eval": "__setupName('Lighthouse recipe');"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(() => !setupsPending && setupsSelected?.name==='Lighthouse recipe' && setupsCheck)",
+    "fatal": true
+  },
+  {
+    "expect": "setupsSelected.payload.then_refine.scale===1.25 && setupsSelected.payload.then_refine.strength===0.4 && setupsSelected.payload.then_refine.steps===null && els.setupsSummary.textContent.includes('Generate · 512 × 512') && els.setupsSummary.textContent.includes('Then refine · 1.25× · Strength 0.4 · Steps inherited from Generate')"
+  },
+  {
+    "eval": "window.__recipeId=setupsSelected.id; __setupClose();"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open)"
+  },
+  {
+    "eval": "rewriteBox(els.prompt,'lighthouse with explicit pass steps'); els.thenRefineSteps.value='12'; syncThenRefine();"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "__setupSelect(__recipeId)"
+  },
+  {
+    "click": "#setups-update"
+  },
+  {
+    "expect": "__until(() => !setupsPending && setupsSelected?.revision===2 && setupsCheck)",
+    "fatal": true
+  },
+  {
+    "expect": "setupsSelected.payload.then_refine.steps===12 && els.setupsSummary.textContent.includes('Then refine · 1.25× · Strength 0.4 · Steps 12')"
+  },
+  {
+    "eval": "__setupClose();"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open)"
+  },
+  {
+    "eval": "rewriteBox(els.prompt,'prior composer for recipe undo'); els.thenRefine.checked=false; els.thenRefineStrength.value='0.65'; els.thenRefineSteps.value='3'; trScale=2; syncThenRefine(); window.__priorRecipeDraft=setupComposerState();"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "__setupSelect(__recipeId)"
+  },
+  {
+    "expect": "setupComposerState()===__priorRecipeDraft && !busy && !submitting"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open && !!setupsUndo && els.thenRefine.checked)",
+    "fatal": true
+  },
+  {
+    "expect": "els.prompt.value==='lighthouse with explicit pass steps' && trScale===1.25 && els.thenRefineStrength.value==='0.4' && els.thenRefineSteps.value==='12' && els.generate.textContent==='Generate + refine' && JSON.stringify(refinePrefs())===__priorRefinePrefs && !busy && !submitting"
+  },
+  {
+    "eval": "document.getElementById('prompt-note-undo').click();"
+  },
+  {
+    "expect": "__until(() => !setupsUndo && setupComposerState()===__priorRecipeDraft)"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "__setupSelect(__recipeId)"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open && !!setupsUndo && els.thenRefine.checked)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__recipeSubmitReal=window.fetch; window.__recipeSubmission=null; window.fetch=(...args)=>{if(String(args[0])==='/api/generate' && args[1]?.method==='POST') window.__recipeSubmission=JSON.parse(args[1].body);return __recipeSubmitReal(...args);}; els.generate.scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#btn-generate"
+  },
+  {
+    "expect": "__until(() => __recipeSubmission?.prompt==='lighthouse with explicit pass steps' && !busy && !submitting && viewerRecords.some(row=>row.strength===0.4 && row.steps===12 && row.width===640 && row.height===640 && row.seed===4242))"
+  },
+  {
+    "expect": "__recipeSubmission.width===512 && __recipeSubmission.height===512 && __recipeSubmission.steps===8 && __recipeSubmission.then_refine.scale===1.25 && __recipeSubmission.then_refine.strength===0.4 && __recipeSubmission.then_refine.steps===12"
+  },
+  {
+    "eval": "window.fetch=__recipeSubmitReal;"
+  },
+  {
     "expect": "__setupErrors.length === 0 && !busy && !submitting"
   },
   {

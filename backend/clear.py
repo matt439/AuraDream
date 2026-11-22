@@ -48,8 +48,7 @@ _human = gallery_reports.human_bytes
 def _keeping(favorites: int, sources: int) -> str:
     """The end of the "Would delete" line: what --keep-favorites spares.
 
-    The starred images, and the images one of them was made from - a refine
-    pass's source, a render's reference images - which storage keeps with them.
+    The starred images and their sources, which storage keeps with them.
     """
     if not favorites and not sources:
         return "."
@@ -190,7 +189,7 @@ def _clear_bin(args: argparse.Namespace) -> int:
     if found["sources_in_use"]:
         print(
             f"  {len(found['sources_in_use']):>6} of them a live image was made from "
-            "(a refine pass's source, a render's reference), which then cannot be made again"
+            "(as a source or reference), so the live image cannot be made again"
         )
     print()
     if found["records"] == 0:
@@ -235,13 +234,12 @@ def main(argv: list[str] | None = None) -> int:
     warn_legacy_env()  # a pre-rename variable left in a shell: named, not read
     parser = argparse.ArgumentParser(
         prog="python -m backend.clear",
-        description="Delete generated images and their gallery history.",
+        description="Delete gallery images and their recorded history.",
     )
     parser.add_argument("-y", "--yes", action="store_true", help="skip the confirmation prompt")
     parser.add_argument(
         "--keep-favorites", action="store_true",
-        help="keep starred images, and the images they were made from (a refine pass's source, "
-        "a render's references)",
+        help="keep starred images and the sources, references and ControlNet guides they used",
     )
     parser.add_argument(
         "-n", "--dry-run", action="store_true", help="report what would go, change nothing"

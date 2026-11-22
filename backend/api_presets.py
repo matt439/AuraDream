@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from . import model_selection, preset_portability, presets
 from .app_context import AppServices
 from .bounded_route import bounded_json_route
+from .config import Settings
 from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .preset_validation import PresetValidation, validate_payload
 from .schemas_preset_portability import (
@@ -75,7 +76,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=404, detail="That setup is no longer in the saved list. Reload the list.")
         return item
 
-    def check_selection(model_id: str, revision: int, step_cache: str | None) -> None:
+    def check_selection(model_id: str, revision: int, step_cache: str | None) -> Settings:
         selected = model_selection.current_settings(services.settings())
         if model_id != selected.model_id:
             raise HTTPException(
@@ -89,11 +90,14 @@ def create_router(services: AppServices) -> APIRouter:
             require_default_execution(resolve_execution(selected.loader_execution, step_cache=step_cache))
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
+        return selected
 
     def validate(fields: PresetFields, revision: int, step_cache: str | None) -> PresetValidation:
-        check_selection(fields.model_id, revision, step_cache)
+        selected = check_selection(fields.model_id, revision, step_cache)
+        backend = services.backend()
         try:
-            return validate_payload(fields.payload, fields.model_id, applier=services.backend().applied)
+            unavailable = backend.refine_refusal(selected) if fields.payload.then_refine is not None else None
+            return validate_payload(fields.payload, fields.model_id, applier=backend.applied, refine_unavailable=unavailable)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
 

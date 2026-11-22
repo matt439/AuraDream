@@ -242,7 +242,9 @@ async function readBundleBrowserPage(view, offset) {
       const id = document.createElement('strong');
       id.textContent = bundleBrowserImageLabel(record);
       const prompt = document.createElement('span');
-      prompt.textContent = record.prompt;
+      prompt.textContent = record.settings.imported_name
+        ? `Imported · ${record.settings.imported_name}`
+        : record.prompt;
       button.append(image, id, prompt);
       button.onclick = () => showBundleBrowserDetails(view, record, button, image);
       return {button, image, record};

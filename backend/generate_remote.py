@@ -103,6 +103,24 @@ def _check_server_selection(args, status: dict) -> None:
             )
 
 
+def _server_spatial_conditioning(value: dict | None, status: dict) -> dict:
+    """Send the recorded recipe once the selected server says it can run it."""
+    if value is None:
+        return {}
+    defaults = status.get("defaults") or {}
+    if value["kind"] == "regional_prompts":
+        if defaults.get("regional_prompts") is not True:
+            raise _ServerError(defaults.get("regional_prompts_reason") or
+                               "The server does not offer regional prompts.", 422)
+    else:
+        capability = (defaults.get("controlnet") or {}).get(value["mode"])
+        if not isinstance(capability, dict):
+            raise _ServerError("The server does not offer this ControlNet mode.", 422)
+        if capability.get("reason"):
+            raise _ServerError(capability["reason"], 422)
+    return {"spatial_conditioning": value}
+
+
 def _via_server(args, parser: argparse.ArgumentParser, source, carried, mask_image, width, height, sized, outpaint_sides, *,
                 check_carried_source, mask_from_record, resolved_execution) -> int:
     """Script the public API; all model defaults and admission stay server-owned.
@@ -127,6 +145,8 @@ def _via_server(args, parser: argparse.ArgumentParser, source, carried, mask_ima
             "run without --via-server, change the prompt, or define new variables with --grid-prompt"
         )
     prompt_axis, gridding = _grid_flags(args, parser)
+    if args.spatial_conditioning is not None and (gridding or args.resume or args.budget is not None):
+        parser.error("--from-image spatial conditioning uses the server's direct Generate endpoint")
     host = os.getenv("AURADREAM_HOST", "127.0.0.1")
     host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     if ":" in host and not host.startswith("["):
@@ -214,6 +234,7 @@ def _via_server(args, parser: argparse.ArgumentParser, source, carried, mask_ima
                 "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
         if args.tiled_refine_spec is not None:
             body["tiled_refine"] = args.tiled_refine_spec.model_dump(mode="json")
+        body.update(_server_spatial_conditioning(args.spatial_conditioning, status))
         body["execution"] = effective_execution.model_dump(exclude_none=True) if effective_execution is not None else None
         if args.crop_anchor is not None:
             body["crop_anchor"] = args.crop_anchor

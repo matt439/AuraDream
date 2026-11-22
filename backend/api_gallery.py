@@ -4,10 +4,10 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from . import gallery_delete, gallery_reports, storage
+from . import gallery_delete, gallery_import, gallery_reports, storage
 from .jobs import JobManager
 from .refusal_codes import IMAGE_BINNED, IMAGE_UNKNOWN, SELECTION_CHANGED
 from .refusals import Refused
@@ -115,6 +115,7 @@ def create_router(
         # Anima), and in place of it and of `all_models`. A gallery read, not
         # model work: it answers while the server is cold or switching.
         model: str | None = Query(None, min_length=1, max_length=512),
+        include_imported: bool = True,
     ) -> GalleryPage:
         # Every storage call runs off the loop: SQLite's busy handler waits up
         # to 15 s, and a write that lands
@@ -131,6 +132,8 @@ def create_router(
                 favorites_only=favorites,
                 before=before,
                 model_id=model or model_scope(all_models),
+                include_unscoped_sources=model is None,
+                include_imported=include_imported,
             )
         except ValueError as exc:  # a filter term that is not a number
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -143,6 +146,29 @@ def create_router(
             other_models=others,
             newest_image_id=newest,
         )
+
+
+    @router.post("/api/gallery/import", response_model=ImageRecord, status_code=201)
+    async def import_source(
+        request: Request, name: str = Query("Pasted image", max_length=1024),
+    ) -> ImageRecord:
+        """Store a single uploaded image as a gallery source."""
+        cap = gallery_import.MAX_UPLOAD_BYTES
+        too_large = HTTPException(status_code=413, detail="Choose an image that is 32 MiB or smaller.")
+        length = request.headers.get("content-length", "")
+        if length.isdecimal() and int(length) > cap:
+            raise too_large
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > cap:
+                raise too_large
+            body.extend(chunk)
+        try:
+            return await asyncio.to_thread(gallery_import.store, body, name)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except OSError as exc:
+            raise HTTPException(status_code=503, detail="The image could not be saved to the gallery.") from exc
 
 
     @router.get("/api/images/{image_id}", response_model=ImageRecord)
@@ -363,7 +389,7 @@ def create_router(
         """
         found = await asyncio.to_thread(
             gallery_delete.matching_preview, _unstarred_scope(search), model_scope(all_models), newer_than,
-            live_only=True, free_words=True,
+            live_only=True, free_words=True, include_unscoped_sources=True,
         )
         return UnstarredPreview(
             unstarred=found["records"] - found["favorites"] - found["sources_kept"],
@@ -410,6 +436,7 @@ def create_router(
                 to_bin=True,
                 free_words=True,
                 pin=pin,
+                include_unscoped_sources=True,
             )
         except gallery_delete.SelectionChanged as exc:
             # Whether a job may move the count again is the server's to say: the

@@ -744,9 +744,28 @@ def main() -> int:
                     )
             return results
 
-    from backend import tag_lookup
+    from backend import tag_lookup, tag_snapshot, tags
 
     tag_lookup.tag_vocabulary = FakeTagVocabulary()
+
+    def snapshot_page(path, params):
+        assert path == "/tags.json" and params["page"] == "1"
+        return [
+            {
+                "name": "silver_hair_ribbon", "category": 0, "post_count": 500,
+                "created_at": "2020-01-01", "is_deprecated": False,
+                "consequent_aliases": [{"antecedent_name": "platinum_hair_ribbon", "status": "active"}],
+            },
+            {
+                "name": "smile", "category": 0, "post_count": 490,
+                "created_at": "2020-01-01", "is_deprecated": False, "consequent_aliases": [],
+            },
+        ]
+
+    # Any request to the fake's installer uses only these deterministic rows.
+    tag_snapshot.PAGES = 1
+    tag_snapshot.PAGE_SIZE = 2
+    tags.request_json = snapshot_page
 
     # Two images made on another checkpoint, so the gallery's scope has
     # something to hide: by default the page shows the claimed checkpoint's
@@ -945,6 +964,16 @@ def main() -> int:
     async def fake_instruction_edit(available: bool = Body(..., embed=True)) -> dict:
         previous, fake.edit_qualified = fake.edit_qualified is True, available is True
         return {"available": fake.edit_qualified, "previous": previous}
+
+    @app_main.app.post("/api/fake/regional-prompts", include_in_schema=False)
+    async def fake_regional_prompts(available: bool = Body(..., embed=True)) -> dict:
+        fake.regional_prompts_qualified = available is True
+        return {"available": fake.regional_prompts_qualified}
+
+    @app_main.app.post("/api/fake/controlnet", include_in_schema=False)
+    async def fake_controlnet(available: bool = Body(..., embed=True)) -> dict:
+        fake.controlnet_available = available is True
+        return {"available": fake.controlnet_available}
 
     # A refine pass the claimed checkpoint lacks, as a loaded pipeline with
     # no image-to-image sibling answers: `supported` false makes status and

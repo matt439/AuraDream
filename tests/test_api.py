@@ -371,6 +371,7 @@ def test_tag_vocabulary_endpoints_are_checkpoint_scoped_and_read_only(client, mo
             "category": "general", "post_count": 591_000,
         }],
         "detail": None,
+        "snapshot_date": None,
     }
     validation = client.post("/api/tags/validate", json={"tags": ["great score"]}).json()
     assert validation["available"] is True

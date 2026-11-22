@@ -1,6 +1,6 @@
 [
   {
-    "log": "'Detail faces/hands on an Animagine fake with deterministic CPU boxes: explicit setup and detection, empty and failed detection, overlapping region selection, unchanged composer, source and receipt refusal, ordered saved passes, cancel/failure partial results, focus return and narrow/standard/wide layouts. No detector quality or card claim.'"
+    "log": "'Detail faces/hands on an Animagine fake: explicit detection, drawing after empty detection, correcting a box, overlapping region selection, unchanged composer, receipt refusal, ordered saved passes, cancel/failure, focus return and responsive layouts.'"
   },
   {
     "navigate": "http://127.0.0.1:7960/"
@@ -118,6 +118,60 @@
     "expect": "els.detailerError.textContent.includes('Nothing will be queued') && __draft() === __keptDraft"
   },
   {
+    "eval": "els.detailerDialog.scrollTop = 0; els.detailerDrawHand.scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-draw-hand"
+  },
+  {
+    "expect": "!els.detailerDrawEdit.hidden && document.activeElement === els.detailerDrawHand && els.detailerRun.getAttribute('aria-disabled') === 'true'",
+    "fatal": true
+  },
+  {
+    "expect": "(() => { const r = els.detailerStage.getBoundingClientRect(); if (!(r.left < 645 && r.top < 132 && r.right > 725 && r.bottom > 204)) return false; window.__drawnBounds = [Math.floor((645-r.left)*__src.width/r.width), Math.floor((132-r.top)*__src.height/r.height), Math.ceil((725-r.left)*__src.width/r.width), Math.ceil((204-r.top)*__src.height/r.height)].join(','); return true; })()",
+    "fatal": true
+  },
+  {
+    "drag": [645, 132, 725, 204]
+  },
+  {
+    "expect": "els.detailerBounds.value.split(', ').join(',') === __drawnBounds && !els.detailerDraftBox.hidden",
+    "fatal": true
+  },
+  {
+    "click": "#detailer-draw-apply"
+  },
+  {
+    "expect": "__until(() => !detailerWorking && detailerPreview.regions.length === 1 && detailerPreview.regions[0].origin === 'drawn' && detailerPreview.regions[0].box.join(',') === __drawnBounds && detailerSelected.size === 1 && !detailerEdit && els.detailerRun.getAttribute('aria-disabled') === 'false')",
+    "fatal": true
+  },
+  {
+    "touch": true
+  },
+  {
+    "tap": "#detailer-draw-face"
+  },
+  {
+    "expect": "!els.detailerDrawEdit.hidden && matchMedia('(pointer: coarse)').matches",
+    "fatal": true
+  },
+  {
+    "swipe": [645, 150, 725, 204]
+  },
+  {
+    "expect": "!!detailerPixelBox() && !els.detailerDraftBox.hidden && detailerPreview.regions.length === 1",
+    "fatal": true
+  },
+  {
+    "tap": "#detailer-draw-cancel"
+  },
+  {
+    "expect": "!detailerEdit && detailerPreview.regions.length === 1 && detailerPreview.regions[0].box.join(',') === __drawnBounds"
+  },
+  {
+    "touch": false
+  },
+  {
     "expect": "(async () => { const res = await __knob({fail: true}); if (!res.ok) return false; return true; })()",
     "fatal": true
   },
@@ -149,6 +203,40 @@
   },
   {
     "expect": "detailerPreview.regions.every((r) => Array.isArray(r.mask_box) && r.mask_box[0] <= r.box[0] && r.mask_box[1] <= r.box[1] && r.mask_box[2] >= r.box[2] && r.mask_box[3] >= r.box[3] && Math.abs(parseFloat([...els.detailerBoxes.querySelectorAll('button')].find((b) => b.dataset.region === r.id).style.left) - r.mask_box[0] / detailerPreview.width * 100) < 0.001) && els.detailerOrderNote.textContent.includes('feather 8px within') && els.detailerRegions.textContent.includes('overlaps region 2') && !els.detailerRegions.textContent.includes('fake-')"
+  },
+  {
+    "eval": "const redraw = els.detailerRegions.querySelector('[data-edit-action=redraw]'); redraw.scrollIntoView({block: 'nearest'}); redraw.focus({preventScroll: true}); window.__formerBox = detailerPreview.regions[0].box.join(',')"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "!els.detailerDrawEdit.hidden && document.activeElement === els.detailerBounds && els.detailerBounds.value.split(', ').join(',') === __formerBox",
+    "fatal": true
+  },
+  {
+    "eval": "els.detailerBounds.select()"
+  },
+  {
+    "type": "40, 42, 88, 111"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__until(() => !detailerWorking && detailerPreview.regions[0].origin === 'corrected' && detailerPreview.regions[0].detected_box.join(',') === __formerBox && detailerPreview.regions[0].box.join(',') === '40,42,88,111' && detailerSelected.size === 2)",
+    "fatal": true
+  },
+  {
+    "eval": "els.detailerRegions.querySelector('[data-edit-action=remove]').scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-regions li:first-child [data-edit-action=remove]"
+  },
+  {
+    "expect": "__until(() => !detailerWorking && !detailerPreview.regions[0].origin && detailerPreview.regions[0].box.join(',') === __formerBox && detailerSelected.size === 2)",
+    "fatal": true
   },
   {
     "eval": "document.querySelector(\"#detailer-regions li:first-child input\").scrollIntoView({block: 'nearest'})"

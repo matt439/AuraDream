@@ -21,7 +21,7 @@ const PANEL_FIELDS = [
   'gridLoraScale', 'gridSize', 'stepCache',
 ];
 // What else is remembered beside the fields, merged key by key as they are.
-const PANEL_KEYS = [...PANEL_FIELDS, 'gridOpen', 'reference', 'translation'];
+const PANEL_KEYS = [...PANEL_FIELDS, 'gridOpen', 'reference', 'translation', 'spatialConditioning'];
 let panelTimer;
 const SAMPLING_AXES = ['gridSteps', 'gridCfg', 'gridMu', 'gridLoraScale'];
 let samplingByModel = {};
@@ -47,6 +47,7 @@ function panelState() {
     gridOpen: els.gridSection.open,
     reference: [...referenceIds],
     translation: translatedSource !== null ? { source: translatedSource, text: els.promptTranslation.value } : null,
+    spatialConditioning: spatialConditioningDraft(),
   };
   for (const key of PANEL_FIELDS) state[key] = els[key].value;
   state.stepCache = stepCacheValue();
@@ -155,6 +156,7 @@ function restorePanel() {
     if (key !== 'stepCache' && typeof state[key] === 'string') els[key].value = state[key];
   }
   setStepCache(Object.hasOwn(state, 'stepCache') ? state.stepCache : '');
+  restoreSpatialDraft(state.spatialConditioning, false);
   // Older panels have no mode; a malformed stored select must not send an
   // empty mode and turn every preview into a schema error.
   if (!['cross', 'random'].includes(els.gridPromptMode.value)) els.gridPromptMode.value = 'cross';
@@ -221,6 +223,7 @@ function resetPanel() {
   els.mu.value = lastDefaults?.mu ?? '';
   els.trueCfg.value = '';
   setStepCache('');
+  restoreSpatialConditioning(null);
   referenceIds = [];
   els.lora.value = '';
   pendingLora = '';
@@ -318,6 +321,7 @@ function undoReset(note) {
     if (!['prompt', 'negative', 'stepCache'].includes(key)) els[key].value = state[key];
   }
   setStepCache(Object.hasOwn(state, 'stepCache') ? state.stepCache : '');
+  restoreSpatialDraft(state.spatialConditioning);
   pendingLora = state.lora && !els.lora.value ? state.lora : '';
   els.gridSection.open = state.gridOpen;
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';

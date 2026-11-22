@@ -159,6 +159,7 @@ function fixture() {
     },
     imageGone: err => err?.code === 'image_unknown' || err?.code === 'image_binned',
     setStepCache: value => { els.stepCache.value = value; }, stepCacheValue: () => els.stepCache.value,
+    spatialConditioningDraft: () => null, restoreSpatialConditioning() {}, restoreSpatialDraft() {},
     setTimeout: () => ++calls.timers, clearTimeout() {},
     calls,
   });

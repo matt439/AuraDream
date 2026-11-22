@@ -40,6 +40,10 @@ let maskRedo = [];
 // The stroke being drawn, and what draws it: a pointer's id, or 'keys'.
 let maskStroke = null;
 let maskTool = 'brush';
+let maskActualPixels = false;
+let maskPanSelected = false;
+let maskPan = { x: 0, y: 0 };
+let maskPanDrag = null;
 let maskSizePx = 64;
 let maskFeatherPx = 0;
 // The keyboard brush's place, in the source's pixels, and whether it shows:
@@ -73,6 +77,10 @@ function resetMask(width, height, kept = null) {
   maskStrokes = kept ? [...kept.strokes] : [];
   maskRedo = kept ? [...kept.redo] : [];
   maskStroke = null;
+  maskActualPixels = false;
+  maskPanSelected = false;
+  maskPan = { x: 0, y: 0 };
+  endMaskPan();
   maskTool = kept?.tool ?? 'brush';
   // A brush a tenth of the picture's shorter side to start with: big enough
   // to see at once, small enough for a face.
@@ -83,6 +91,7 @@ function resetMask(width, height, kept = null) {
   maskCursor = { x: Math.round(width / 2), y: Math.round(height / 2) };
   maskCursorShown = false;
   maskMeasured = kept?.measured ?? { empty: true, coverage: 0 };
+  syncMaskView();
   replayMask();
   syncMaskTools();
 }
@@ -324,7 +333,10 @@ function maskEdited() {
 // --------------------------------------------------------------- tools
 
 function setMaskTool(tool) {
+  if (maskPanDrag) return;
   maskTool = tool;
+  maskPanSelected = false;
+  syncMaskViewControls();
   syncMaskTools();
 }
 
@@ -391,7 +403,7 @@ function maskButtonHeld(button) {
 // status line.
 function syncMaskTools() {
   for (const [button, tool] of [[els.inpaintBrushTool, 'brush'], [els.inpaintEraserTool, 'eraser']]) {
-    button.setAttribute('aria-pressed', String(maskTool === tool));
+    button.setAttribute('aria-pressed', String(!maskPanSelected && maskTool === tool));
   }
   els.inpaintSize.value = String(maskSizePx);
   els.inpaintSizeOut.textContent = `${maskSizePx} px`;
@@ -421,8 +433,88 @@ function syncMaskStatus() {
   const covered = !maskTouched() ? 'nothing masked yet - paint the part to repaint'
     : maskMeasured.empty ? 'nothing masked'
       : `${maskMeasured.coverage < 1 ? '<1' : Math.round(maskMeasured.coverage)}% of the picture masked`;
-  const text = `${tool} ${maskSizePx} px · feather ${maskFeatherPx} px · ${covered}`;
+  const text = maskPanSelected ? `Pan · drag or use the arrow keys to move the image · ${covered}`
+    : `${tool} ${maskSizePx} px · feather ${maskFeatherPx} px · ${covered}`;
   if (els.inpaintStatus.textContent !== text) els.inpaintStatus.textContent = text;
+}
+
+// ------------------------------------------------------------ image view
+
+// At 1:1 a source pixel takes one screen pixel, as in the lightbox and
+// sheets. Only the shared box changes; every bitmap stays at source size.
+function setMaskActualPixels(actual) {
+  if (maskStroke || maskPanDrag || maskActualPixels === actual) return;
+  maskActualPixels = actual;
+  maskPanSelected = false;
+  maskPan = { x: 0, y: 0 };
+  maskCursorShown = false;
+  els.inpaintBrush.hidden = true;
+  syncMaskView();
+  syncMaskTools();
+}
+
+function syncMaskView() {
+  const pixelsAcross = maskWidth / devicePixelRatio;
+  const pixelsDown = maskHeight / devicePixelRatio;
+  els.inpaintStage.classList.toggle('actual-pixels', maskActualPixels);
+  els.inpaintPicture.style.setProperty('--ip-pixel-width', `${pixelsAcross}px`);
+  els.inpaintPicture.style.setProperty('--ip-pixel-height', `${pixelsDown}px`);
+  moveMaskView(maskPan.x, maskPan.y);
+  syncMaskViewControls();
+  placeKeyBrush();
+  drawMaskSoon();
+}
+
+function maskPanLimits() {
+  if (!maskActualPixels) return { x: 0, y: 0 };
+  const frame = els.inpaintStage.getBoundingClientRect();
+  return {
+    x: Math.max(0, (maskWidth / devicePixelRatio - frame.width) / 2),
+    y: Math.max(0, (maskHeight / devicePixelRatio - frame.height) / 2),
+  };
+}
+
+function moveMaskView(x, y) {
+  const limits = maskPanLimits();
+  maskPan = {
+    x: Math.min(limits.x, Math.max(-limits.x, x)),
+    y: Math.min(limits.y, Math.max(-limits.y, y)),
+  };
+  els.inpaintPicture.style.setProperty('--ip-pan-x', `${maskPan.x}px`);
+  els.inpaintPicture.style.setProperty('--ip-pan-y', `${maskPan.y}px`);
+}
+
+function syncMaskViewControls() {
+  const limits = maskPanLimits();
+  const canPan = !!(limits.x || limits.y);
+  // If a viewport change makes the whole image visible, give the tool back
+  // to the last brush or eraser.
+  if (!canPan && maskPanSelected) {
+    maskPanSelected = false;
+    endMaskPan();
+    syncMaskTools();
+  }
+  els.inpaintStage.classList.toggle('pan-tool', maskPanSelected);
+  els.inpaintFit.setAttribute('aria-pressed', String(!maskActualPixels));
+  els.inpaintActual.setAttribute('aria-pressed', String(maskActualPixels));
+  els.inpaintPan.setAttribute('aria-pressed', String(maskPanSelected));
+  els.inpaintPan.setAttribute('aria-disabled', String(!canPan));
+  els.inpaintPan.title = canPan ? 'Drag or press an arrow key to move the image (H)'
+    : maskActualPixels ? 'The whole image is already visible' : 'Choose 1:1 to pan the image';
+}
+
+function toggleMaskPan() {
+  if (maskStroke || maskPanDrag || maskButtonHeld(els.inpaintPan)) return;
+  maskPanSelected = !maskPanSelected;
+  maskCursorShown = false;
+  els.inpaintBrush.hidden = true;
+  syncMaskViewControls();
+  syncMaskTools();
+}
+
+function endMaskPan() {
+  maskPanDrag = null;
+  els.inpaintStage.classList.remove('panning');
 }
 
 // --------------------------------------------------------------- export
@@ -473,24 +565,36 @@ function maskPoint(event) {
 }
 
 function maskPointerDown(event) {
-  if (event.button !== 0 || !inpaintSource || maskStroke) return;
+  if (event.button !== 0 || !inpaintSource || maskStroke || maskPanDrag) return;
   event.preventDefault();
   els.inpaintCanvas.focus({ preventScroll: true });
   // Captured, so the stroke goes on past the picture's edge and ends there;
   // a pointer the browser no longer has (a synthetic one) paints uncaptured.
   try { els.inpaintCanvas.setPointerCapture(event.pointerId); } catch { /* not an active pointer */ }
   maskCursorShown = false;
+  if (maskPanSelected) {
+    maskPanDrag = { by: event.pointerId, x: event.clientX - maskPan.x, y: event.clientY - maskPan.y };
+    els.inpaintStage.classList.add('panning');
+    return;
+  }
   beginStroke(maskPoint(event), event.pointerId);
   placeBrush(event.clientX, event.clientY);
 }
 
 function maskPointerMove(event) {
+  if (maskPanSelected) {
+    if (maskPanDrag?.by === event.pointerId) {
+      moveMaskView(event.clientX - maskPanDrag.x, event.clientY - maskPanDrag.y);
+    }
+    return;
+  }
   placeBrush(event.clientX, event.clientY);
   if (maskStroke?.by !== event.pointerId) return;
   for (const e of event.getCoalescedEvents?.() ?? [event]) extendStroke(maskPoint(e));
 }
 
 function maskPointerUp(event) {
+  if (maskPanDrag?.by === event.pointerId) endMaskPan();
   if (maskStroke?.by === event.pointerId) endStroke();
 }
 
@@ -517,6 +621,18 @@ function placeKeyBrush() {
   if (!maskCursorShown) return;
   const rect = els.inpaintCanvas.getBoundingClientRect();
   placeBrush(rect.left + (maskCursor.x / maskWidth) * rect.width, rect.top + (maskCursor.y / maskHeight) * rect.height);
+}
+
+// Constrain the keyboard brush to pixels that can be seen and painted
+// inside the current frame. In Pan, arrows move the frame's view instead.
+function moveMaskCursor(dx, dy) {
+  const frame = els.inpaintStage.getBoundingClientRect();
+  const [left, top] = maskPoint({ clientX: frame.left, clientY: frame.top });
+  const [right, bottom] = maskPoint({ clientX: frame.right, clientY: frame.bottom });
+  maskCursor = {
+    x: Math.min(right, maskWidth, Math.max(0, left, maskCursor.x + dx)),
+    y: Math.min(bottom, maskHeight, Math.max(0, top, maskCursor.y + dy)),
+  };
 }
 
 // Alt+wheel over the picture sizes the brush; a plain wheel scrolls the
@@ -546,11 +662,15 @@ function maskKeydown(event) {
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
   if (arrows[key]) {
     event.preventDefault();
-    const step = Math.max(1, Math.round(maskSizePx / 4)) * (event.shiftKey ? 4 : 1);
-    maskCursor = {
-      x: Math.min(maskWidth, Math.max(0, maskCursor.x + arrows[key][0] * step)),
-      y: Math.min(maskHeight, Math.max(0, maskCursor.y + arrows[key][1] * step)),
-    };
+    if (maskPanDrag) return;
+    const [x, y] = arrows[key];
+    const multiplier = event.shiftKey ? 4 : 1;
+    if (maskPanSelected) {
+      moveMaskView(maskPan.x - 32 * multiplier * x, maskPan.y - 32 * multiplier * y);
+      return;
+    }
+    const step = Math.max(1, Math.round(maskSizePx / 4)) * multiplier;
+    moveMaskCursor(x * step, y * step);
     maskCursorShown = true;
     placeKeyBrush();
     if (maskStroke?.by === 'keys') extendStroke([maskCursor.x, maskCursor.y]);
@@ -558,7 +678,8 @@ function maskKeydown(event) {
   }
   if (key === ' ') {
     event.preventDefault();
-    if (event.repeat) return;
+    if (event.repeat || maskPanSelected) return;
+    moveMaskCursor(0, 0);
     maskCursorShown = true;
     placeKeyBrush();
     beginStroke([maskCursor.x, maskCursor.y], 'keys');
@@ -567,6 +688,8 @@ function maskKeydown(event) {
   const lower = key.toLowerCase();
   if (lower === 'b') { event.preventDefault(); setMaskTool('brush'); }
   else if (lower === 'e') { event.preventDefault(); setMaskTool('eraser'); }
+  else if (lower === 'h') { event.preventDefault(); if (!event.repeat) toggleMaskPan(); }
+  else if (key === '0' || key === '1') { event.preventDefault(); setMaskActualPixels(key === '1'); }
   else if (lower === 'i') { event.preventDefault(); if (!event.repeat && !event.shiftKey) invertMask(); }
   else if (key === '[') { event.preventDefault(); stepMaskSize(false); }
   else if (key === ']') { event.preventDefault(); stepMaskSize(true); }

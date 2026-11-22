@@ -220,6 +220,7 @@ class ModelStatus(BaseModel):
     load_started_at: float | None = None
     # Numbers and flags, held reasons and the fixed tiled recipe.
     defaults: dict[str, float | int | bool | str | TiledRefineCapability | None] = {}
+    controlnet: dict[str, dict[str, str | int | None]] = {}
     refine_strength_suggestions: RefineStrengthSuggestions | None = None
     # Prose for the same profile, keyed by control name - what steps/CFG/mu mean
     # on *this* checkpoint. Unlike `defaults`, which the UI applies once, these

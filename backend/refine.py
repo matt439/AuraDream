@@ -407,7 +407,7 @@ def library_strength(cls: type) -> float | None:
     return float(default)
 
 
-def build(pipe: Any, cls: type) -> Any:
+def build(pipe: Any, cls: type, **extra_components: Any) -> Any:
     """`cls` over the loaded pipeline's own components.
 
     Constructed directly rather than through `cls.from_pipe`, which ends in
@@ -418,7 +418,7 @@ def build(pipe: Any, cls: type) -> Any:
     Config values the sibling's constructor takes (SDXL's
     `force_zeros_for_empty_prompt`) are the loaded pipeline's.
     """
-    components = pipe.components
+    components = {**pipe.components, **extra_components}
     config = pipe.config
     kwargs: dict[str, Any] = {}
     for name, param in inspect.signature(cls.__init__).parameters.items():

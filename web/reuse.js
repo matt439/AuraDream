@@ -19,6 +19,7 @@ function fillPanel(rec, sampling) {
   els.seed.value = rec.seed;
   if (!sampling) return;
   setStepCache('');
+  restoreSpatialConditioning(rec.spatial_conditioning);
   ownControls();
   els.steps.value = rec.steps;
   els.cfg.value = rec.guidance_scale;
@@ -59,7 +60,8 @@ function rewriteBox(el, text) {
 // source and are no prompt of their own, so its item is held.
 const USE_PROMPT_EDIT = "An instruction edit's instruction is about its source, not a prompt of its own; "
   + 'Reuse reopens the edit.';
-const usePromptReason = (rec) => (rec.edit != null ? USE_PROMPT_EDIT : '');
+const usePromptReason = (rec) => rec.imported_name ? 'An imported image has no saved prompt'
+  : rec.edit != null ? USE_PROMPT_EDIT : '';
 
 // The pair into its boxes as typing writes it, the negative first so the
 // caret ends in the prompt. A box that holds the text already is left alone:
@@ -129,6 +131,7 @@ function editReuseReason(rec) {
 }
 
 function executionReuseReason(rec) {
+  if (rec.imported_name) return 'An imported image has no generation settings to reuse.';
   if (rec.edit != null) return editReuseReason(rec);
   if (rec.tiled_refine != null) {
     const id = rec.tiled_refine.source;
@@ -136,6 +139,10 @@ function executionReuseReason(rec) {
     if (rec.tiled_refine_binned || binnedIds.has(id)) return sourceGoneWords({ id }, 'binned', 'refine');
     if (rec.tiled_refine_missing || deletedIds.has(id)) return sourceGoneWords({ id }, 'deleted', 'refine');
     return tiledRefineCapabilityReason();
+  }
+  if (rec.spatial_conditioning) {
+    const spatialReason = spatialConditioningReuseReason(rec.spatial_conditioning);
+    if (spatialReason) return spatialReason;
   }
   const spec = rec.execution;
   if (spec == null) return '';
@@ -249,6 +256,7 @@ function reuseFields() {
     steps: els.steps.value, cfg: els.cfg.value, mu: els.mu.value, trueCfg: els.trueCfg.value,
     owned: { ...owned }, reference: [...referenceIds], lora: els.lora.value || pendingLora, loraScale: els.loraScale.value,
     stepCache: stepCacheValue(),
+    spatialConditioning: spatialConditioningDraft(),
   };
 }
 
@@ -483,6 +491,7 @@ function undoReuse(note) {
   els.mu.value = values.mu;
   els.trueCfg.value = values.trueCfg;
   setStepCache(Object.hasOwn(state, 'stepCache') ? state.stepCache : '');
+  restoreSpatialDraft(state.spatialConditioning);
   referenceIds = state.reference;
   els.lora.value = state.lora;
   pendingLora = state.lora && !els.lora.value ? state.lora : '';
@@ -558,6 +567,7 @@ function syncReuseButton(button, rec, compact = false) {
   const modelId = rec.model_id;
   const pass = rec.refine ?? null;
   button.dataset.reuseModel = modelId || '';
+  button.dataset.reuseImported = rec.imported_name || '';
   button.dataset.reusePass = pass ?? '';
   button.dataset.reuseMask = rec.mask ?? '';
   // An outpaint's spec by its key (`fill:L,T,R,B@band`), so a status
@@ -568,6 +578,7 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseReference = (rec.reference ?? []).join(',');
   button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseExecution = JSON.stringify(rec.execution ?? null);
+  button.dataset.reuseSpatialConditioning = JSON.stringify(rec.spatial_conditioning ?? null);
   const tiled = rec.tiled_refine;
   button.dataset.reuseTiledRefine = String(!!tiled);
   button.dataset.reuseTiledSource = tiled?.source ?? '';
@@ -588,7 +599,8 @@ function syncReuseButton(button, rec, compact = false) {
     button.textContent = compact ? '\u21b6' : rec.edit != null ? 'Reuse instruction edit'
       : tiled ? 'Reuse Tiled Refine' : 'Reuse settings';
     button.setAttribute('aria-disabled', 'true');
-    button.setAttribute('aria-label', rec.edit != null ? 'Reuse instruction edit (unavailable)'
+    button.setAttribute('aria-label', rec.imported_name ? 'Reuse settings (imported image)'
+      : rec.edit != null ? 'Reuse instruction edit (unavailable)'
       : tiled ? 'Reuse Tiled Refine (unavailable)' : 'Reuse settings (unavailable execution recipe)');
     button.title = executionReason;
     button.dataset.tip = 'Reuse unavailable';
@@ -723,6 +735,7 @@ function syncReuseButtons() {
     const kept = button.dataset;
     syncReuseButton(button, {
       model_id: kept.reuseModel,
+      imported_name: kept.reuseImported,
       refine: kept.reusePass ? +kept.reusePass : null,
       mask: kept.reuseMask || null,
       outpaint: parseOutpaintKey(kept.reuseOutpaint),
@@ -732,6 +745,7 @@ function syncReuseButtons() {
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
       lora: kept.reuseLora || null,
       execution: JSON.parse(kept.reuseExecution || 'null'),
+      spatial_conditioning: JSON.parse(kept.reuseSpatialConditioning || 'null'),
       edit: kept.reuseEdit === 'true'
         ? { source: kept.reuseEditSource ? +kept.reuseEditSource : null, recipe: kept.reuseEditRecipe }
         : null,

@@ -59,6 +59,32 @@ def test_crud_and_revisioned_validation_keep_the_raw_draft(client, store):
     assert client.get(f"/api/presets/{item['id']}").status_code == 404
 
 
+def test_recipe_validates_inherited_and_explicit_steps_and_live_refine_support(client, fake, store):
+    spec = {"scale": 1.25, "strength": 0.4, "steps": None}
+    payload = {"prompt": "A forest", "steps": 1, "then_refine": spec}
+    response = client.post("/api/presets", json=capture(payload=payload))
+    assert response.status_code == 422 and "leaves no step" in response.json()["detail"]
+    path = presets.path_for(store.settings.db_path)
+    assert not path.exists()
+
+    item = create(client, payload={**payload, "steps": 12})
+    assert item["payload"]["then_refine"] == spec
+    assert json.loads(path.read_bytes())["version"] == 2
+    result = check(client, item).json()
+    assert result["saved"]["then_refine"] == spec
+    assert "then_refine" not in result["effective"]
+
+    explicit = {**spec, "steps": 8}
+    item = create(client, payload={**payload, "then_refine": explicit})
+    assert item["payload"]["then_refine"] == explicit
+    original = path.read_bytes()
+    fake.refine_supported = False
+    response = check(client, item)
+    assert response.status_code == 422 and "has no refine pass" in response.json()["detail"]
+    assert path.read_bytes() == original
+    assert not fake.requests
+
+
 @pytest.mark.parametrize("changes", [
     {"reference": [1]}, {"lora": "a.safetensors"}, {"refine": 1},
     {"mask": "a" * 64}, {"then_refine": {"scale": 1.5}}, {"edit": {"source": 1}},
@@ -148,6 +174,10 @@ def test_cold_routes_bypass_gallery_gate_and_never_describe_load_or_submit(clien
     monkeypatch.setattr(presets, "read", independent_read)
     item = create(client)
     assert check(client, item).status_code == 200
+    recipe = create(client, payload={"prompt": "An oak", "steps": 8, "then_refine": {
+        "scale": 1.25, "strength": 0.4,
+    }})
+    assert check(client, recipe).status_code == 200
     assert client.get("/api/presets").status_code == 200
     assert client.get("/api/presets-other").status_code == 409
     assert client.get(f"/api/presets/{item['id']}/unrelated").status_code == 409

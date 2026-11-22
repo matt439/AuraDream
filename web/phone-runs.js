@@ -325,6 +325,7 @@ function sheetFootItems() {
   const fillItem = fill && press('Fill width', fill);
   return [
     ...Object.values(SHEET_SWIPES).map((swipe) => press(swipe.label, own(`.${swipe.className}`))),
+    press('Blind comparison…', own('.sheet-blind-compare')),
     // Fill width ticked while it is on, as a phone's menus tick the choice
     // in force.
     fillItem && { ...fillItem, checked: fill.getAttribute('aria-pressed') === 'true' },

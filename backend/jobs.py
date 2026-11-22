@@ -653,6 +653,14 @@ class JobManager:
             if then_refine is not None or detailer is not None or source_passes:
                 raise ValueError("Tiled Refine cannot queue together with another image pass.")
             cells = await self._bind_tiled_cells(cells)
+        conditioned = [cell.request for cell in cells if cell.request.spatial_conditioning is not None]
+        if conditioned:
+            from .spatial_admission import require_available as require_spatial_available
+
+            if then_refine is not None or detailer is not None or source_passes:
+                raise ValueError("Spatial conditioning cannot be queued with another image pass.")
+            for request in dict((item.spatial_conditioning, item) for item in conditioned).values():
+                await asyncio.to_thread(require_spatial_available, self.backend, selected, request)
         for cell in [*cells, *source_passes]:
             reason = self.backend.refine_refusal(selected, cell.request)
             if refine_qualification.applies(selected.model_id) and cell.request.inpainting:

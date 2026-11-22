@@ -62,6 +62,8 @@ try:
     from backend import gallery_lock, png_settings, storage, tiled_refine_contract as tiled
     from backend.bundle_common import _DB_REQUIRED
     from backend.config import settings
+    from backend.controlnet_admission import guide_matches_path
+    from backend.controlnet_contract import ControlNetSpec
     from backend.execution import canonical_execution, execution_chunk, execution_from_json, execution_key
     from backend.instruction_edit import InstructionEditSource, StoredInstructionEdit, descriptor_from_image, edit_key
     from backend.detailer import StoredDetailer, iter_rebuilt_masks, region_mask, stored_json as detailer_json
@@ -75,6 +77,12 @@ try:
         validate_detailer_record,
         canonical_tiled_refine, tiled_refine_chunk, tiled_refine_from_info, tiled_refine_from_json,
         tiled_refine_from_sources, validate_tiled_refine_record,
+        validate_import_record, validate_import_sources, validate_import_sources_from_info,
+    )
+    from backend.metadata import conditioning_from_info
+    from backend.spatial_conditioning import (
+        canonical_conditioning, conditioning_chunk, conditioning_from_json, conditioning_from_sources,
+        conditioning_json, conditioning_key, validate_record as validate_conditioning_record,
     )
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
@@ -165,6 +173,7 @@ def _preflight_passes(source: Path, rows: list[dict] | None = None) -> set[str]:
                 _verify_detailer_masks(detailer)
                 tiled_refine = canonical_tiled_refine(meta.get("tiled_refine"))
                 validate_tiled_refine_record(tiled_refine, meta)
+                validate_conditioning_record(canonical_conditioning(meta.get("spatial_conditioning")), meta)
                 if tiled_refine is not None and tiled_refine.source is not None:
                     tiled_roots.add(tiled_refine.root_source.filename)
         return tiled_roots
@@ -172,6 +181,7 @@ def _preflight_passes(source: Path, rows: list[dict] | None = None) -> set[str]:
         stored = edit_from_json(row.get("edit"))
         detailer = detailer_from_json(row.get("detailer"))
         tiled_refine = tiled_refine_from_sources(row, None)
+        spatial = conditioning_from_sources(row, None)
         validate_detailer_record(detailer, row)
         _verify_detailer_masks(detailer)
         filename = row.get("filename")
@@ -186,6 +196,8 @@ def _preflight_passes(source: Path, rows: list[dict] | None = None) -> set[str]:
                 detailer_from_sources(row, meta or {})
             if meta is not None or tiled_refine is not None:
                 tiled_refine_from_sources(row, meta or {})
+            if meta is not None or spatial is not None:
+                conditioning_from_sources(row, meta or {})
     return tiled_roots
 
 
@@ -194,11 +206,14 @@ def _preflight_retained_passes(retained: dict[str, dict], outputs: Path) -> None
         path = outputs / filename
         # A missing ordinary destination retains its normal conflict behavior;
         # an edit cannot claim its durable PNG representation is still present.
-        if path.is_file() or any(row.get(key) is not None for key in ("edit", "detailer", "tiled_refine")):
+        if path.is_file() or any(row.get(key) is not None for key in (
+            "edit", "detailer", "tiled_refine", "spatial_conditioning",
+        )):
             meta = _edit_metadata(path) or {}
             edit_from_sources(row, meta)
             detailer_from_sources(row, meta)
             tiled_refine_from_sources(row, meta)
+            conditioning_from_sources(row, meta)
 
 
 def _verify_detailer_masks(stored: StoredDetailer | None) -> None:
@@ -341,9 +356,11 @@ def _dependency_order(rows: list[dict], cycles: set[int]) -> list[dict]:
         stored = edit_from_json(row.get("edit"))
         detailer = detailer_from_json(row.get("detailer"))
         tiled_refine = tiled_refine_from_json(row.get("tiled_refine"))
+        spatial = conditioning_from_json(row.get("spatial_conditioning"))
         links = [*_json_list(row.get("reference")), row.get("refine"), stored.source if stored else None,
                  detailer.plan.source_id if detailer is not None else None,
-                 tiled_refine.source if tiled_refine is not None else None]
+                 tiled_refine.source if tiled_refine is not None else None,
+                 spatial.source if isinstance(spatial, ControlNetSpec) else None]
         for source_id in links:
             if type(source_id) is int and source_id in by_id:
                 visit(by_id[source_id])
@@ -695,6 +712,7 @@ def _database_meta(
     )
     return {
         "prompt": row["prompt"],
+        **({"imported_name": row["imported_name"]} if row.get("imported_name") is not None else {}),
         "negative_prompt": row.get("negative_prompt"),
         "steps": row["steps"],
         "guidance_scale": row["guidance_scale"],
@@ -728,6 +746,7 @@ def _database_meta(
         **edit_chunk(edit_from_json(row.get("edit"))),
         **detailer_chunk(detailer_from_json(row.get("detailer"))),
         **tiled_refine_chunk(tiled_refine_from_json(row.get("tiled_refine"))),
+        **conditioning_chunk(conditioning_from_json(row.get("spatial_conditioning"))),
         **storage.peak_chunk(row),
     }
 
@@ -837,6 +856,9 @@ def merge_database(
             stored_detailer = detailer_from_sources(row, png_meta or {})
             stored_tiled = tiled_refine_from_sources(row, png_meta or {})
             validate_tiled_refine_record(stored_tiled, {**row, "width": width, "height": height})
+            stored_spatial = conditioning_from_sources(row, png_meta or {})
+            validate_conditioning_record(stored_spatial, {**row, "width": width, "height": height})
+            validate_import_sources(row, png_meta or {})
         except ValueError as exc:
             counts["invalid"] += 1
             print(f"  skip  {filename}: invalid execution metadata: {exc}", file=out)
@@ -854,7 +876,11 @@ def merge_database(
                         retained_edit = edit_from_info(known, info)
                         retained_detailer = detailer_from_info(known, info)
                         retained_tiled = tiled_refine_from_info(known, info)
+                        retained_spatial = conditioning_from_info(known, info)
+                        validate_import_sources_from_info(known, info)
                         _verify_retained_pixels(image, kept, known, in_place=source == outputs)
+                if known.get("imported_name") != row.get("imported_name"):
+                    raise ValueError("different imported image metadata already uses that filename")
                 if retained != execution:
                     raise ValueError("different execution already uses that filename")
                 if not _same_edit(retained_edit, stored_edit) or (
@@ -865,6 +891,8 @@ def merge_database(
                     raise ValueError("different detailer manifest already uses that filename")
                 if not _same_tiled(retained_tiled, stored_tiled, known, row):
                     raise ValueError("different Tiled Refine intent already uses that filename")
+                if conditioning_key(retained_spatial) != conditioning_key(stored_spatial):
+                    raise ValueError("different spatial conditioning already uses that filename")
             except (OSError, ValueError, Image.DecompressionBombError) as exc:
                 counts["conflicts"] += 1
                 print(f"  skip  {filename}: cannot use the retained image: {exc}", file=out)
@@ -913,8 +941,22 @@ def merge_database(
             ):
                 tiled_source = mapped_source
         remapped_tiled = _remapped_tiled(stored_tiled, tiled_source, counts)
+        remapped_spatial = stored_spatial
+        if isinstance(stored_spatial, ControlNetSpec):
+            recorded_id = stored_spatial.source
+            upstream = source_rows.get(recorded_id) if recorded_id is not None else None
+            guide_id = id_map.get(recorded_id) if recorded_id is not None else None
+            guide = stored_spatial.guide
+            origin = source / guide.filename
+            target_guide = origin if dry_run and guide.filename not in destination.retained else outputs / guide.filename
+            if (upstream is None or upstream["filename"] != guide.filename or source_id in edit_cycles
+                    or not guide_matches_path(origin, guide) or not guide_matches_path(target_guide, guide)):
+                guide_id = None
+            counts["unresolved_controlnet_guides"] = counts.get("unresolved_controlnet_guides", 0) + (guide_id is None)
+            remapped_spatial = stored_spatial.model_copy(update={"source": guide_id})
         row = {**row, "execution": execution_key(execution), "edit": edit_key(remapped_edit),
-               "detailer": detailer_json(remapped_detailer), "tiled_refine": tiled.tiled_refine_key(remapped_tiled)}
+               "detailer": detailer_json(remapped_detailer), "tiled_refine": tiled.tiled_refine_key(remapped_tiled),
+               "spatial_conditioning": conditioning_json(remapped_spatial)}
         masks.detailer(remapped_detailer)
 
         source_references = [
@@ -983,6 +1025,7 @@ def merge_database(
         meta = _database_meta(row, width, height, digest, references, refine, mask, spec, crop)
         values = {
             "filename": filename,
+            "imported_name": row.get("imported_name"),
             "prompt": row["prompt"],
             "negative_prompt": row.get("negative_prompt"),
             "width": width,
@@ -1012,6 +1055,7 @@ def merge_database(
             "edit": edit_key(remapped_edit),
             "detailer": detailer_json(remapped_detailer),
             "tiled_refine": tiled.tiled_refine_key(remapped_tiled),
+            "spatial_conditioning": conditioning_json(remapped_spatial),
             "batch": storage._batch(row.get("batch")),
             # The recycle bin is SQLite's alone, as the star is: carried with
             # the database, and None (live) from one that predates it.
@@ -1030,6 +1074,7 @@ def merge_database(
             if (copied or row.get("refine") != refine or row.get("crop_anchor") != meta.get("crop_anchor")
                     or execution != png_execution or remapped_edit != stored_edit or remapped_detailer != stored_detailer
                     or remapped_tiled != stored_tiled
+                    or remapped_spatial != stored_spatial
                     or png_crop != meta.get("mask_crop") or parameters is not None):
                 # A database rebuilt beside its original PNGs can renumber or
                 # lose a source too. Keep --from-image's crop and source in
@@ -1184,6 +1229,24 @@ def reindex(
             return abs(existing[filename])
         return None
 
+    def resolve_controlnet(stored: ControlNetSpec) -> int | None:
+        if stored.source is None:
+            return None
+        guide = stored.guide
+        if guide.filename in visiting:
+            edit_cycles.update(visiting)
+            return None
+        if guide.filename in paths:
+            index(paths[guide.filename])
+        image_id = existing.get(guide.filename)
+        if image_id is None or guide.filename in edit_cycles:
+            return None
+        origin = paths.get(guide.filename, outputs / guide.filename)
+        target_guide = origin if image_id < 0 else outputs / guide.filename
+        if guide_matches_path(origin, guide) and guide_matches_path(target_guide, guide):
+            return abs(image_id)
+        return None
+
     def index(path: Path) -> None:
         if path.name in visited:
             return
@@ -1202,10 +1265,14 @@ def reindex(
                         retained = edit_from_info(known, info)
                         retained_detailer = detailer_from_info(known, info)
                         retained_tiled = tiled_refine_from_info(known, info)
+                        retained_spatial = conditioning_from_info(known, info)
+                        validate_import_sources_from_info(known, info)
                 incoming_meta = incoming_meta or {}
+                validate_import_sources(known, incoming_meta)
                 incoming = canonical_edit(incoming_meta.get("edit"))
                 incoming_detailer = canonical_detailer(incoming_meta.get("detailer"))
                 incoming_tiled = canonical_tiled_refine(incoming_meta.get("tiled_refine"))
+                incoming_spatial = canonical_conditioning(incoming_meta.get("spatial_conditioning"))
                 if not _same_edit(incoming, retained) or (
                     incoming is not None and known["prompt"] != incoming_meta.get("prompt")
                 ):
@@ -1214,6 +1281,8 @@ def reindex(
                     raise ValueError("different detailer manifest already uses that filename")
                 if not _same_tiled(retained_tiled, incoming_tiled, known, incoming_meta):
                     raise ValueError("different Tiled Refine intent already uses that filename")
+                if conditioning_key(retained_spatial) != conditioning_key(incoming_spatial):
+                    raise ValueError("different spatial conditioning already uses that filename")
             except (OSError, ValueError, Image.DecompressionBombError) as exc:
                 # A retained row can keep its id and still be unsafe as a
                 # source for anything imported in this recovery.
@@ -1241,6 +1310,9 @@ def reindex(
             stored_detailer = canonical_detailer(meta.get("detailer"))
             stored_tiled = canonical_tiled_refine(meta.get("tiled_refine"))
             validate_tiled_refine_record(stored_tiled, {**meta, "width": width, "height": height})
+            stored_spatial = canonical_conditioning(meta.get("spatial_conditioning"))
+            validate_conditioning_record(stored_spatial, {**meta, "width": width, "height": height})
+            validate_import_record(meta)
         except ValueError as exc:
             counts["invalid_execution"] += 1
             print(f"  skip  {path.name}: invalid execution metadata: {exc}", file=out)
@@ -1286,6 +1358,13 @@ def reindex(
         if path.name in edit_cycles:
             tiled_source = None
         remapped_tiled = _remapped_tiled(stored_tiled, tiled_source, counts)
+        remapped_spatial = stored_spatial
+        if isinstance(stored_spatial, ControlNetSpec):
+            guide_id = resolve_controlnet(stored_spatial)
+            if path.name in edit_cycles:
+                guide_id = None
+            counts["unresolved_controlnet_guides"] = counts.get("unresolved_controlnet_guides", 0) + (guide_id is None)
+            remapped_spatial = stored_spatial.model_copy(update={"source": guide_id})
         masks.detailer(remapped_detailer)
         references = []
         reference_sources = []
@@ -1342,6 +1421,7 @@ def reindex(
             or stored_edit != remapped_edit
             or stored_detailer != remapped_detailer
             or stored_tiled != remapped_tiled
+            or stored_spatial != remapped_spatial
         )
         meta = {
             **meta,
@@ -1376,6 +1456,8 @@ def reindex(
         meta.update(detailer_chunk(remapped_detailer))
         meta.pop("tiled_refine", None)
         meta.update(tiled_refine_chunk(remapped_tiled))
+        meta.pop("spatial_conditioning", None)
+        meta.update(conditioning_chunk(remapped_spatial))
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
             "filename": path.name, "hash": digest, "width": width, "height": height,
@@ -1497,6 +1579,9 @@ def main(argv: list[str] | None = None) -> int:
         summary += f", {counts['unresolved_detailers']} unresolved detailer original source(s)"
     if counts["unresolved_tiled_refines"]:
         summary += f", {counts['unresolved_tiled_refines']} unresolved Tiled Refine original source(s)"
+    unresolved_guides = counts.get("unresolved_controlnet_guides", 0)
+    if unresolved_guides:
+        summary += f", {unresolved_guides} unresolved ControlNet guide(s)"
     if counts["detailer_masks_rebuilt"]:
         summary += f", {counts['detailer_masks_rebuilt']} detailer mask(s) built again from their frozen regions"
     if counts["masks"]:

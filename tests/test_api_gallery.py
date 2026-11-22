@@ -26,6 +26,16 @@ def _plant(store, model_id, prompt="a lighthouse in fog", seed=1, run_id=None):
     )
 
 
+def test_gallery_records_also_serve_the_exact_decimal_seed(client, store):
+    seeds = (2**63 - 1, 2**63 - 2)
+    for seed in seeds:
+        _plant(store, settings.model_id, seed=seed)
+    page = client.get("/api/gallery").json()
+    assert [(row["seed"], row["seed_decimal"]) for row in page["items"]] == [
+        (seed, str(seed)) for seed in reversed(seeds)
+    ]
+
+
 def test_the_gallery_shows_the_running_checkpoint_unless_asked_for_every_one(client, store):
     # A gallery that has seen three checkpoints: by default the page is the
     # running one's images, and the reply says how many the filter would have

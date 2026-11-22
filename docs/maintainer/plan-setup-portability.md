@@ -25,8 +25,8 @@ write holds, were fixed by `UI#35` on 2026-10-30
    flag. No destructive reproduction is needed.
 
 Choose the first for direct user value and bounded reversible implementation.
-The native format is `auradream.generation-presets`, integer version 1, with
-download name `auradream-generation-setups.json`. ComfyUI's official workflow
+The native format is `auradream.generation-presets`, with download name
+`auradream-generation-setups.json`. ComfyUI's official workflow
 JSON documentation supplies a portable-recipe precedent, not format
 compatibility or evidence of measured user demand (source linked below).
 The user's autonomous new-work instruction permits this selection without a
@@ -35,12 +35,17 @@ routine product-choice question; explicit existing deferrals remain intact.
 ## Contract
 
 Use a separate native UTF-8 JSON document with exactly `format`, integer
-`version: 1` and ordered `items`. Require the chosen exact format literal;
-reject booleans/floats as versions, unknown versions/fields, duplicate JSON
+`version` and ordered `items`. The native format supports versions 1 and 2.
+Version 2 adds `payload.then_refine` for Generate setups. Scale and strength
+are explicit. A null pass step count inherits Generate's steps. Export uses
+version 1 when every setup has Then refine off, with the recipe field omitted.
+It uses version 2 whenever an enabled recipe is present. Require the exact
+format literal. Reject booleans and floats as versions, unknown versions or fields, duplicate JSON
 keys, nonfinite numbers, invalid Unicode and excessive nesting. Portable items
 contain **only `PresetFields`: `name`, exact `model_id`, typed raw `payload`**.
-Emit the complete payload, including nulls/default fields, using the current
-schema's semantics. Never serialize `Preset` or capture-transport models.
+Emit the typed payload with its ordinary nulls and default fields. Omit the
+optional recipe when it is off. Keep local identity and capture transport
+fields out of the document.
 
 Retain the existing 100-item, 80-code-point name and 8-MiB portable/final-store
 bounds. Preserve exact Prompt/Negative and axis/variable text, array/item order,

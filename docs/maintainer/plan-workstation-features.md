@@ -25,96 +25,93 @@ of those rows still lacks a required link, the receipt says replay is held.
 
 ## Save a Generate and Then refine recipe
 
-`GEN#75`. Save a named setup with Then refine enabled, including scale,
-strength and inherited or explicit step count. Today Save asks the user to
-turn Then refine off. Extend the [saved setup format](plan-generation-presets.md#saved-contract)
-and its [portable form](plan-setup-portability.md).
-
-Complete when save, export, import and restore reproduce the same two-stage
-request on its supported checkpoint. Show both stages in the restore preview.
-Restore must leave the recipe ready to inspect and run, and Undo must recover
-the previous composer. Cover older setups, which restore with Then refine off.
+**`GEN#75` built 2026-11-22.** Generate setups retain scale, strength
+and inherited or explicit steps in a version 2 recipe. The restore preview
+shows both stages and Undo recovers the previous composer. Older setups
+restore with Then refine off. The saved setups and portability smokes
+exercised the two-stage request, exact export/import and Undo.
+[Saved setup format](plan-generation-presets.md#saved-contract) ·
+[Portable format](plan-setup-portability.md)
 
 ## Offline tag autocomplete and checking
 
-`PA#20`. Offer a downloadable, dated tag index with canonical names,
-aliases and categories for supported tag-based checkpoints. Show which index
-answered a lookup. Keep the checkpoint author's own vocabulary available.
-[Current tag lookup](../../backend/tags.py)
-
-Complete when a fresh server with the index installed and the network
-disconnected can suggest a previously unqueried tag, resolve an alias and
-check its category. An unknown name should be described as absent from that
-snapshot. Cover initial installation and an interrupted refresh that leaves
-the previous snapshot usable.
+**`PA#20` built 2026-11-22.** The Tags menu downloads a dated snapshot
+of up to 10,000 popular Danbooru tags, their active aliases and categories.
+Offline autocomplete and Check report the snapshot date. The checkpoint's
+own vocabulary remains available, and users can switch back to live lookup.
+A real download populated 10,000 tags. The API and browser checks covered
+alias resolution, categories, a dated miss, operation after reopening the
+index, and keeping the previous snapshot after an interrupted refresh.
 
 ## Blind comparison of gallery results
 
-`GAL#39`. Offer a blind review for two picked images and for two prompt
-or Refine variants rendered on shared seeds. Adapt the A/B/tie and reveal
-interaction from the [fixed performance review](blind-performance-review.md)
-to ordinary [gallery comparisons](../usage.md#browse-compare-and-keep-results).
-
-Complete when the reviewer can inspect the same detail on both sides, record
-a preference or tie, then reveal the prompts, settings and totals by variant.
-Hide identifying labels until reveal and retain each randomized side assignment
-through the review. Pair results by seed and report unmatched seeds explicitly.
+**`GAL#39` built 2026-11-22.** Picked and contact sheets open a blind
+A/B review. Images share a zoom and pan position. The reviewer records a
+preference or tie, then can reveal the prompts, settings and totals. Pairing
+uses the saved seed as an exact decimal string and reports missing matches.
+Repeated renders use the newest row for each variant and seed, and the
+review retains each randomized assignment for the session. Browser checks
+covered Picked, missing seeds, synchronized pan, saved votes while
+navigating, and selecting two strengths from a three-variant Refine sweep.
+[Gallery comparison workflow](../usage.md#browse-compare-and-keep-results)
 
 ## Zoom and pan while painting a mask
 
-`INP#16`. Let the user switch between fit and actual pixels and pan to an
-eye, fingertip or narrow edge while [painting an inpaint mask](plan-inpainting.md#the-canvas).
-Keep the source and mask aligned throughout zoom and pan.
-
-Complete when a stroke, erasure and undo at 1:1 affect the intended source
-pixels on a large image. Returning to fit should show the same mask.
-Exercise mouse and touch navigation, including a pan that leaves no brush mark.
+**`INP#16` built 2026-11-22.** Fit and actual pixels share a fixed
+frame. Pan works with mouse, touch and keyboard. The source, mask and
+crop preview use the same transform. The Inpaint smoke verified precise
+painting, erasing and Undo on a 1536-square picture, a stable mask on
+return to Fit, and an emulated phone pan without a brush mark.
+[Mask workflow](../usage.md#inpaint-part-of-an-image)
 
 ## Draw a missed detailer region
 
-`INP#17`. The [Detailer](plan-detailer.md) lets users accept or drop
-detected faces and hands. Its fixtures include illustrated hands that the
-detector missed. Let the reviewer draw a box around a missed region or
-correct a detected box before queueing.
-
-Complete when both a zero-detection result and a mixed manual/detected
-selection can produce the reviewed masks in order. Preserve the final bounds
-and which boxes the user drew or changed in replay metadata. `INP#12`
-continues to own the separate on-card quality comparison.
+**`INP#17` built 2026-11-22.** The review supports drawing missed faces
+or hands and correcting a detected box before queueing. The server applies
+the normal padding, ordering and masks to both a manual-only review and a
+mixed review. Version 2 provenance retains final geometry and whether the
+user drew or edited the box. The separate on-card quality comparison
+remains in `INP#12`. [Detailer plan](plan-detailer.md)
 
 ## Photo and sketch import
 
-`GEN#8`. Matt reopened the earlier [personal reference import decision](../design-notes.md#reference-images-by-gallery-id).
-Provide file pick, drop and paste for a photo or sketch. Create a gallery
-source with its own ID and an imported-source marker. Load settings from PNG
-keeps its separate metadata-only action.
-
-Complete when an imported image can be selected on a reference-capable
-checkpoint or used as a source for a supported Refine pass, including after
-reindex or bundle restore. Verify that a later rerun resolves the same source
-and that the gallery clearly identifies the original as imported.
+**`GEN#8` built 2026-11-22.** Gallery Import accepts file pick, drop
+and paste and stores a normalized RGB picture under a new gallery ID.
+The source marker travels through the PNG, reindex and bundle restore.
+Import checks exercised a reference and a Refine job, replay, a binned
+source and selective archive restore with colliding IDs. The PNG settings
+smoke covered the desktop and phone import flows alongside the existing
+settings-only flow. [Gallery import workflow](../usage.md#use-references-and-adapters)
 
 ## ControlNet pose and depth guidance
 
-`GEN#76`. Let the user supply a pose map or depth map to guide composition.
-Matt reopened these two controls from the [peer review](review-2026-11-10-peers.md#against-the-peers).
-Start by identifying a compatible catalogue checkpoint and control weights
-for each mode, then specify how to select, preview and record the guide.
+**`GEN#76` built and qualified 2026-11-22.** The composer previews a
+gallery guide by ID before Generate. The first recipe uses a prepared
+1024-square pose or depth map with the pinned Animagine XL 4.0 FP8/model
+loader. The result records the guide ID and full RGB proof, mode, weight
+revision and strength. Bundle restore and reindex resolve a guide by
+proof. If the guide is absent, replay holds with the original proof.
 
-Complete when each mode has a qualified checkpoint and a reproducible example.
-Compare guided and unguided renders on the same seed for pose or depth
-adherence and measure the card and host memory required. Preserve the guide
-image identity, control weights and strength for replay, and show which modes
-the selected checkpoint supports.
+The fixed-seed card comparison followed the synthetic guide in both modes.
+The pose changed from arms lowered to one raised and one extended. The
+depth render followed three boxes receding across the image. Both guided
+replays matched their RGB hashes. The pose-only module is discarded on
+cleanup, and an unguided control after the sequence matched its earlier
+output. [Card measurements](../verified.md#spatial-guidance-on-animagine-xl-40)
 
 ## Region-specific prompts
 
-`GEN#77`. Let a user describe distinct parts of one composition, such as
-“red coat” on the left and “blue coat” on the right, alongside a whole-image
-prompt. Start with a compatible checkpoint and an editable spatial region
-for each local prompt. Define how overlapping regions combine.
+**`GEN#77` built and qualified 2026-11-22.** The composer accepts up to
+three rectangular local prompts with editable percentage bounds.
+`sdxl-attention-v1` joins the whole-image and local tokens for covered
+queries and averages the attention output of overlapping regions. The
+whole-image pooled text and negative branch stay global. Reuse restores
+the recorded layout and text. The recipe travels in the row, PNG, run
+identity, replay, reindex and bundle.
 
-Complete when a fixed-seed comparison shows what changes when the two
-local prompts swap places. Record region geometry, text and the method used
-so a saved image can restore and replay the setup. Qualify the supported
-checkpoint and size on the card before offering them in the app.
+The guarded public API trial on the pinned Animagine XL 4.0 FP8/model
+recipe showed red and blue coats swapping sides when their prompts
+swapped at the same seed. Replaying the original regions matched the
+RGB hash. A three-region render ran and the unguided control after the
+region tests matched its earlier output.
+[Card measurements](../verified.md#spatial-guidance-on-animagine-xl-40)

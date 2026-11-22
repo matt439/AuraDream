@@ -289,12 +289,14 @@ function applyTagSuggestion(suggestion, range = currentTagRange()) {
 // when no name matches too, which is when it is wanted; never preselected.
 const TAG_FIND_MIN = 3;
 
-function renderTagSuggestions(items, query = '') {
+function renderTagSuggestions(items, query = '', snapshotDate = null) {
   const typed = query.trim();
   const rows = typed.length >= TAG_FIND_MIN ? [...items, { find: true, text: typed }] : items;
   tagSuggestions = rows;
   tagSuggestionIndex = -1;
   els.tagSuggestions.replaceChildren();
+  els.tagSuggestions.setAttribute('aria-label', snapshotDate
+    ? `Tag suggestions · ${offlineTagIndexLabel(snapshotDate)}` : 'Tag suggestions');
   els.prompt.removeAttribute('aria-activedescendant');
   for (const [index, suggestion] of rows.entries()) {
     const item = document.createElement('li');
@@ -314,6 +316,8 @@ function renderTagSuggestions(items, query = '') {
     if (suggestion.find) {
       item.classList.add('tag-find');
       item.title = "Search Danbooru's tag wiki for these words";
+    } else if (snapshotDate) {
+      item.title = suggestion.category === 'model' ? "Checkpoint author's tag" : offlineTagIndexLabel(snapshotDate);
     }
     item.onmousedown = (event) => event.preventDefault();
     item.onclick = () => applyTagSuggestion(suggestion);
@@ -354,7 +358,7 @@ async function requestTagSuggestions() {
       hideTagSuggestions();
       return;
     }
-    renderTagSuggestions(body.suggestions || [], query);
+    renderTagSuggestions(body.suggestions || [], query, body.snapshot_date);
   } catch {
     if (epoch === tagSuggestionEpoch) hideTagSuggestions();
   }

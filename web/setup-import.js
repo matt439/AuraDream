@@ -79,6 +79,7 @@ function setupImportEnvelope(extra = {}) {
 }
 
 function setupImportKind(payload) {
+  if (payload.then_refine) return 'Generate + Then refine';
   return payload.mode === 'grid' ? 'Grid' : 'Generate';
 }
 
@@ -91,6 +92,7 @@ function setupImportEssentials(payload) {
     `Prompt:\n${payload.prompt}`,
     `Negative:\n${payload.negative_prompt || '(empty)'}`,
   ];
+  if (payload.then_refine) lines.push(setupThenRefineSummary(payload.then_refine));
   const grid = payload.grid;
   if (grid) {
     lines.push(`Variables (${grid.prompt_mode}):\n${grid.prompt_axis || '(none)'}`,

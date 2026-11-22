@@ -458,6 +458,8 @@ function pickedGridSeeds() {
   if (binMode) return { why: BIN_HELD };
   const records = selectedRecords();
   if (!records.length) return { why: pickedNone() };
+  const imported = records.find((rec) => rec.imported_name);
+  if (imported) return { why: `Unpick #${imported.id} to copy seeds. An imported image has no seed` };
   const unsafe = records.find((rec) => !Number.isSafeInteger(rec.seed) || rec.seed < 0);
   if (unsafe) return { why: `#${unsafe.id} has a seed the browser cannot copy exactly; use whole seeds from 0 to ${Number.MAX_SAFE_INTEGER}` };
   return { seeds: [...new Set(records.map((rec) => rec.seed))] };
@@ -507,7 +509,7 @@ function pickedReviewRow(rec) {
   row.dataset.id = rec.id;
   const image = document.createElement('img');
   image.loading = 'lazy';
-  image.alt = rec.prompt || `Image #${rec.id}`;
+  image.alt = rec.imported_name || rec.prompt || `Image #${rec.id}`;
   image.src = rec.thumb_url || rec.url;
   const button = document.createElement('button');
   button.type = 'button';
@@ -561,6 +563,7 @@ function syncPickedButton() {
   els.pickedBtn.title = why || `Review ${them}, star, unstar, compare, bin, copy seeds to the grid or re-render at a tier`;
   const grid = pickedGridSeeds();
   const compare = pickedComparison();
+  const blind = pickedBlindComparison();
   const favorite = favoriteWriteReason(selectedIds());
   const lifecycle = binWriteReason(selectedIds());
   const titles = {
@@ -570,11 +573,13 @@ function syncPickedButton() {
     bin: `Move ${them} to the recycle bin; the note it leaves has Restore`,
     seeds: grid.why || `Fill Seed list with ${plural(grid.seeds.length, 'distinct picked seed')} in picked order; other grid settings are kept`,
     compare: compare.why || `Compare #${compare.records[0].id} with #${compare.records[1].id}; the first picked image stays on the left`,
+    blind: blind.why || 'Review the picked images as A and B, then reveal the settings',
   };
   for (const item of els.pickedMenu.querySelectorAll('[data-picked]:not([data-picked="tier"])')) {
     const held = why || (item.dataset.picked === 'star' || item.dataset.picked === 'unstar' ? favorite
       : item.dataset.picked === 'bin' ? lifecycle
-        : item.dataset.picked === 'seeds' ? grid.why : item.dataset.picked === 'compare' ? compare.why : '');
+        : item.dataset.picked === 'seeds' ? grid.why : item.dataset.picked === 'compare' ? compare.why
+          : item.dataset.picked === 'blind' ? blind.why : '');
     item.setAttribute('aria-disabled', String(!!held));
     item.title = held || titles[item.dataset.picked];
   }
@@ -673,6 +678,7 @@ function pickedChoose(item) {
   else if (act === 'review') openPickedReview();
   else if (act === 'seeds') seedsToGrid();
   else if (act === 'compare') comparePicked();
+  else if (act === 'blind') openBlindComparison(pickedBlindComparison());
   else if (act === 'tier') void rerenderAtTier();
   else void starPicked(act === 'star');
 }

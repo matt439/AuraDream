@@ -339,6 +339,8 @@ function drawSheet() {
   if (barRun) els.sheetControls.append(
     finishRunButton(barRun), moreSeedsRunButton(barRun, { model: sheetRecords[0]?.model_id }),
   );
+  const blindCompare = blindSheetButton(sheetRecords);
+  if (blindCompare) els.sheetControls.append(blindCompare);
   if (sheetRecords.length) {
     const hint = document.createElement('span');
     hint.className = 'sheet-hint';

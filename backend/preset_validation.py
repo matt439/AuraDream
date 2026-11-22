@@ -11,9 +11,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from . import grid
+from . import grid, then_refine
 from .model_defaults import defaults_for
-from .schemas_generate import GenerateRequest, GridRequest
+from .schemas_generate import GenerateRequest, GridRequest, ThenRefine
 from .schemas_presets import PresetPayload
 
 
@@ -44,6 +44,7 @@ def validate_payload(
     capabilities: Mapping[str, Any] | None = None,
     *,
     applier: Callable[[GenerateRequest], GenerateRequest] | None = None,
+    refine_unavailable: str | None = None,
 ) -> PresetValidation:
     """Validate a draft without resolving sources, drawing seeds or loading.
 
@@ -71,7 +72,7 @@ def validate_payload(
 
     # Explicitly resolve defaults from the supplied id. GenerateRequest's
     # ordinary omitted-field defaults otherwise read the current selection.
-    fields = payload.model_dump(exclude={"mode", "grid"})
+    fields = payload.model_dump(exclude={"mode", "grid", "then_refine"})
     for name in ("steps", "guidance_scale", "mu", "true_cfg"):
         if fields[name] is None:
             fields[name] = profile.get(name)
@@ -145,6 +146,17 @@ def validate_payload(
         )
 
     request.check_budget()
+    if payload.then_refine is not None:
+        spec = ThenRefine.model_validate(payload.then_refine.model_dump())
+        reason = then_refine.refusal([request], spec, refine_unavailable, model_id=model_id)
+        if reason is not None:
+            raise ValueError(reason)
+        # A stand-in has no real source. Normalization tells us whether this
+        # backend can currently preserve refine without describing/loading it.
+        supported = (caps["refine_supported"] if applier is None
+                     else applied(then_refine.stand_in(request, spec)).refine is not None)
+        if not supported:
+            raise ValueError(f"{model_id} has no refine pass in this app.")
     note_inactive(request, effective)
     return PresetValidation(
         saved=payload, effective=effective, inactive=sorted(inactive),

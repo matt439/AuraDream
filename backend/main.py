@@ -58,6 +58,7 @@ from .config import ATTENTION_ENVIRONMENT_WARNING, settings  # noqa: E402
 from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
 from .execution import canonical_loader_execution, require_configured_loader_available  # noqa: E402
+from . import controlnet_admission  # noqa: E402
 from .launch import CHECKPOINTS, warn_legacy_env  # noqa: E402
 from .instruction_edit import (  # noqa: E402
     INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, option_refusals, require_model_available,
@@ -595,7 +596,8 @@ async def hold_model_for_request(request: Request, call_next):
     depends_on_model = path in {
         "/api/instruction-edit/preview", "/api/instruction-edit",
         "/api/tiled-refine/preview",
-        "/api/detailer/preview", "/api/detailer",
+        "/api/controlnet/preview",
+        "/api/detailer/preview", "/api/detailer/review", "/api/detailer",
         "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
         "/api/loras", "/api/png/settings",
         "/api/model/load", "/api/model/unload",
@@ -794,6 +796,8 @@ async def status() -> ModelStatus:
     defaults = _merged_defaults(info)
     defaults["tiled_refine"] = TiledRefineCapability()
     defaults["tiled_refine_reason"] = info["tiled_refine_reason"]
+    defaults["regional_prompts"] = info["regional_prompts_reason"] is None
+    defaults["regional_prompts_reason"] = info["regional_prompts_reason"]
     refine_suggestions = refine_qualification.suggestions(info["model_id"])
     selected_settings = current_settings(settings)
     card_holder, card_ticket = jobs.card()
@@ -870,6 +874,7 @@ async def status() -> ModelStatus:
         prompt_critic=prompt_critic.describe(),
         keep_awake=_keep_awake_status(),
         passcode=_passcode_gate is not None,
+        controlnet=info["controlnet"],
     )
 
 
@@ -879,6 +884,8 @@ def _describe_with_newest() -> tuple[dict, int | None]:
     card_facts.card(current_settings(settings).device)
     info = backend.describe()
     info["tiled_refine_reason"] = backend.tiled_refine_refusal(current_settings(settings))
+    info["controlnet"] = controlnet_admission.capabilities(backend, current_settings(settings))
+    info["regional_prompts_reason"] = backend.regional_prompts_refusal(current_settings(settings))
     return info, storage.newest_image_id()
 
 

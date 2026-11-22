@@ -134,7 +134,7 @@ def create_router(services: AppServices) -> APIRouter:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
         records, gone, binned = await submission.resolve_selection(
             services, ids=request.ids, search=request.search, favorites=request.favorites,
-            all_models=request.all_models,
+            all_models=request.all_models, include_imported=False,
         )
         deleted = [
             RerenderGone(id=image_id, detail=submission.gone_detail(image_id, binned), binned=image_id in binned)
@@ -144,6 +144,13 @@ def create_router(services: AppServices) -> APIRouter:
             said = "; ".join(f"#{item.id} is {item.detail}" for item in deleted[:6])
             more = f"; and {len(deleted) - 6} more" if len(deleted) > 6 else ""
             raise HTTPException(status_code=404, detail=f"none of the selected images is left: {said}{more}")
+        imported = [record for record in records if record.imported_name is not None]
+        if imported:
+            listed = ", ".join(f"#{record.id}" for record in imported[:6])
+            raise HTTPException(
+                status_code=422,
+                detail=f"Imported sources have no settings to re-render. Use Refine on {listed} or unpick them.",
+            )
         # Steps, CFG and mu are checkpoint-specific - Turbo's 8 / 0 / 1.15 on FLUX
         # is a broken image recorded under FLUX - so a record from another
         # checkpoint is refused rather than rendered wrong. From a filter, only

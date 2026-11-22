@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 import zlib
 from collections.abc import Mapping
 from typing import Any, IO
 
 from .execution import ExecutionSpec, canonical_execution, execution_from_json
+from .spatial_conditioning import SpatialConditioning, conditioning_from_sources
 from .instruction_edit import StoredInstructionEdit, geometry, recipe_for, stored_from_json
 from .detailer import StoredDetailer, stored_from_json as detailer_stored_from_json
 from . import tiled_refine_contract as tiled
@@ -31,6 +33,50 @@ LEGACY_PNG_MASK_KEYS = ("local-diffusion-mask",)
 PNG_MASK_KEYS = (PNG_MASK_KEY, *LEGACY_PNG_MASK_KEYS)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+IMPORT_NAME_LIMIT = 160
+
+
+def clean_import_name(name: str) -> str:
+    """The filename for display only, never a path or a settings prompt."""
+    leaf = name.replace("\\", "/").rsplit("/", 1)[-1]
+    printable = "".join(char for char in leaf if not unicodedata.category(char).startswith("C"))
+    return unicodedata.normalize("NFC", printable).strip()[:IMPORT_NAME_LIMIT].rstrip() or "Pasted image"
+
+
+def validate_import_record(record: Mapping[str, Any]) -> None:
+    """Keep generated recipes and plain gallery sources distinct in storage."""
+    name = record.get("imported_name")
+    if name is None:
+        return
+    if not isinstance(name, str) or name != clean_import_name(name):
+        raise ValueError("invalid imported image name")
+    model = record.get("model_id", record.get("model"))
+    if model != "" or record.get("prompt") != "" or any(
+        record.get(key) != 0 for key in ("seed", "steps", "guidance_scale")
+    ) or any(record.get(key) is not None for key in (
+        "negative_prompt", "true_cfg", "mu", "quantization", "job_id", "run_id", "job", "run",
+        "variables", "reference", "refine", "strength", "lora", "lora_scale", "mask",
+        "execution", "edit", "detailer", "tiled_refine", "spatial_conditioning",
+        "crop_anchor", "upscaler", "batch", "outpaint", "mask_crop", "mask_crop_box",
+        "vram_peak_allocated", "vram_peak_reserved",
+    )) or record.get("duration_ms", 0) != 0:
+        raise ValueError("an imported image cannot carry generation settings")
+
+
+def validate_import_sources(row: Mapping[str, Any], meta: Mapping[str, Any]) -> None:
+    validate_import_record(row)
+    validate_import_record(meta)
+    if row.get("imported_name") != meta.get("imported_name"):
+        raise ValueError("imported image names disagree between the database and PNG")
+
+
+def validate_import_sources_from_info(row: Mapping[str, Any], info: Mapping[Any, Any]) -> None:
+    raw = embedded_metadata({key: info.get(key) for key in PNG_METADATA_KEYS})
+    meta = json.loads(raw) if raw is not None else {}
+    if not isinstance(meta, dict):
+        raise ValueError("PNG metadata must be a JSON object")
+    validate_import_sources(row, meta)
 
 
 def require_header_metadata(stream: IO[bytes]) -> None:
@@ -313,6 +359,14 @@ def execution_from_sources(row: dict, meta: dict | None) -> ExecutionSpec | None
     if "execution" in row and meta is not None and "execution" in meta and database != embedded:
         raise ValueError("execution recipes disagree between the database and PNG")
     return database if "execution" in row else embedded
+
+
+def conditioning_from_info(row: Mapping[str, Any], info: Mapping[str, Any]) -> SpatialConditioning | None:
+    raw = embedded_metadata(info)
+    metadata = json.loads(raw) if raw else {}
+    if not isinstance(metadata, dict):
+        raise ValueError("the PNG metadata is not an object")
+    return conditioning_from_sources(row, metadata)
 
 
 def execution_from_info(row: dict, info: dict | None) -> ExecutionSpec | None:

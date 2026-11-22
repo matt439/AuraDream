@@ -2,6 +2,8 @@
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
+let chipSnapshotDate = null;
+
 // ---------------------------------------------------------------- the chips
 
 // The tray's label, its title and its state: what the lookup said (checked,
@@ -13,7 +15,8 @@ function syncTagTray(results, state, detail = '', typing = null) {
     .flatMap((part) => Array.from({ length: part.last - part.first + 1 }, (_, offset) => part.first + offset)));
   const unknown = results.filter((result, index) => !prose.has(index) && result.valid === false && index !== typing).length;
   const name = prose.size ? 'Prompt tags and prose' : 'Prompt tags';
-  const label = [state === 'offline' ? `${name} · Danbooru unreachable, not checked` : `${name} · Danbooru`];
+  const source = chipSnapshotDate ? offlineTagIndexLabel(chipSnapshotDate) : 'Danbooru';
+  const label = [state === 'offline' ? `${name} · Danbooru unreachable, not checked` : `${name} · ${source}`];
   if (state !== 'offline' && unknown) label.push(`${unknown} unknown`);
   if (state === 'pending') label.push('checking…');
   if (state !== 'offline' && results.length > TAG_LOOKUP_CAP) {
@@ -32,8 +35,8 @@ function syncTagTray(results, state, detail = '', typing = null) {
     state === 'pending' ? 'Checking Danbooru…'
       : state === 'offline'
         ? `Danbooru unreachable; unchecked tags are not treated as invalid${detail ? `: ${detail}` : ''}`
-        : prose.size ? 'Tags checked against Danbooru or checkpoint guide tags; natural language stays as text'
-          : 'Each comma-separated item checked against Danbooru or checkpoint guide tags',
+        : prose.size ? `Tags checked against ${source} or checkpoint guide tags; natural language stays as text`
+          : `Each comma-separated item checked against ${source} or checkpoint guide tags`,
     'edge colour: blue general, green character, purple copyright, red artist, yellow meta, teal guide tag',
     ...(ordered
       ? [`caption: the step of the guide's documented order Check places the tag in (${tagSlots.steps.join(' → ')}); none where it cannot place it`]
@@ -508,6 +511,9 @@ async function validatePromptTags(tags, epoch, prompt) {
       body: JSON.stringify({ tags: [...chipped, ...values], prompt }),
     });
     if (epoch !== tagValidationEpoch) return;
+    const snapshotDate = body.snapshot_date || null;
+    if (chipSnapshotDate !== snapshotDate) tagVerdictCache().clear();
+    chipSnapshotDate = snapshotDate;
     rememberTagVerdicts(body.results);
     keepPromptParts(body.parts, prompt, model);
     const caret = caretTagIndex();
@@ -518,6 +524,7 @@ async function validatePromptTags(tags, epoch, prompt) {
     syncTagSelection();
   } catch (error) {
     if (epoch !== tagValidationEpoch) return;
+    chipSnapshotDate = null;
     tagSlots = { model, prompt: prompt.trim(), steps: [], slots: null, failed: true };
     renderTagValidation(tags.map((tag, index) => (isGridVariable(tag) ? gridVariableResult(tag) : uncheckedTag(tag, index))),
       'offline', error.message);

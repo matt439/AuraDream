@@ -81,7 +81,7 @@ function addPanelSize() {
 
 function runGrid() {
   if (submitting) return;
-  const held = submitHold({ composer: true });
+  const held = submitHold({ composer: true }) || spatialConditioningGridHold();
   if (held) {
     if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
     else if (modelChangeHold()) sayModelChangeHold();
@@ -269,7 +269,8 @@ function gridReviewKey(body) {
 }
 
 function syncGridRun(why = submitHold({ composer: true })) {
-  const reason = why || (els.gridSection.open && els.prompt.value.trim() && gridReviewReason);
+  const reason = why || spatialConditioningGridHold()
+    || (els.gridSection.open && els.prompt.value.trim() && gridReviewReason);
   els.gridRun.setAttribute('aria-disabled', String(submitting || !!reason));
   els.gridRun.title = reason || GRID_RUN_TITLE + thenRefineTitleSuffix();
 }

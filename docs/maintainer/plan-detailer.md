@@ -424,6 +424,27 @@ selected too; masks and provenance cannot recover omitted images.
 Original-chain Finish is held, including after import/restart. Partial
 results name what completed and require a new explicit review to restart.
 
+### Drawing and correcting regions
+
+Draw face and Draw hand start a box on the source, including when no
+detector is installed or the detector found nothing. Drag on the image or
+enter left, top, right and bottom in source pixels, then apply the box.
+Redraw replaces a region's bounds. Reset restores its detected bounds.
+Remove drops a drawn region. Each change returns the server's updated mask
+extents, overlaps and pass order under a new receipt. The previous receipt
+can no longer queue its geometry.
+
+Edited reviews use `detailer-v2`. Each drawn region stores its kind and
+final bounds with `origin: "drawn"`. Each corrected region stores its
+final bounds, original detected bounds and detector facts with
+`origin: "corrected"`. Detection-only reviews retain the `detailer-v1`
+manifest and operation identity. Both versions use the same mask rule and
+ordinary inpaint cell identity. The stored operation on the gallery row
+and in its PNG survives whole and selected bundle imports and reindex,
+including source remaps and mask reconstruction. Individual reruns still
+resolve the saved direct source and mask without detecting or editing
+regions again.
+
 ### Local validation, 2026-11-16
 
 - `uv run --group dev pytest -n 4 --durations=15 -q --tb=short`:

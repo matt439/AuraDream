@@ -418,7 +418,7 @@ async function learnRunOrder(epoch) {
     && els.search.value.trim().split(/\s+/).includes(`job:${job}`);
   const search = jobScope ? `job:${job}` : `run:${run}`;
   if (!els.favOnly.checked && els.search.value.trim() === search) return;
-  const params = new URLSearchParams({ limit: sheetPage, search });
+  const params = new URLSearchParams({ limit: sheetPage, search, include_imported: 'false' });
   if (els.allModels.checked) params.set('all_models', 'true');
   try {
     const page = await api(`/api/gallery?${params}`);

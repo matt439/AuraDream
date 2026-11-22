@@ -249,6 +249,19 @@ class GenerationBackend(abc.ABC):
 
         return HELD
 
+    def regional_prompts_refusal(self, selected: Any, *, check_hardware: bool = True) -> str | None:
+        from ..spatial_conditioning import REGIONAL_UNAVAILABLE
+
+        return REGIONAL_UNAVAILABLE
+
+    def controlnet_qualified(self, mode: str) -> bool:
+        """Whether a named ControlNet mode was qualified on this backend."""
+        return False
+
+    def controlnet_owner_refusal(self) -> str | None:
+        """A ready pipeline may narrow the cold loader's capability."""
+        return None
+
     def check_refine_supported(self, request: "GenerateRequest") -> None:
         """Refuse a pass the loaded pipeline cannot perform, before any cell.
 

@@ -5,15 +5,17 @@ carry conditioning, execution intent, a gallery identity or expanded work.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, field_validator, model_serializer, model_validator
 
 from .config import settings
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
 MAX_PRESETS = 100
 MAX_PRESET_NAME = 80
+SETUP_VERSIONS = (1, 2)
 
 
 class _StrictPreset(BaseModel):
@@ -42,6 +44,21 @@ class PresetGrid(_StrictPreset):
     budget_minutes: float | None = Field(default=None, gt=0, le=7 * 24 * 60)
 
 
+class PresetThenRefine(_StrictPreset):
+    """One composer pass. Strength is captured explicitly and steps can inherit."""
+
+    scale: float
+    strength: float = Field(gt=0, le=1)
+    steps: int | None = Field(default=None, ge=1, le=100)
+
+    @field_validator("scale")
+    @classmethod
+    def _composer_scale(cls, value: float) -> float:
+        if value not in (1, 1.25, 1.5, 2):
+            raise ValueError("choose a Then refine scale of 1, 1.25, 1.5 or 2")
+        return value
+
+
 class PresetPayload(_StrictPreset):
     mode: Literal["generate", "grid"] = "generate"
     prompt: str = Field(min_length=1, max_length=4000)
@@ -56,12 +73,22 @@ class PresetPayload(_StrictPreset):
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     runs: int = Field(default=1, ge=1, le=MAX_RUNS)
     grid: PresetGrid | None = None
+    then_refine: PresetThenRefine | None = None
 
     @model_validator(mode="after")
     def _mode_has_its_grid(self) -> PresetPayload:
         if (self.mode == "grid") != (self.grid is not None):
             raise ValueError("a Grid setup needs its grid definition; a Generate setup has none")
+        if self.grid is not None and self.then_refine is not None:
+            raise ValueError("a saved Then refine recipe requires a Generate setup")
         return self
+
+    @model_serializer(mode="wrap")
+    def _without_inactive_recipe(self, encode: SerializerFunctionWrapHandler):
+        data = encode(self)
+        if self.then_refine is None:
+            data.pop("then_refine", None)
+        return data
 
 
 class PresetFields(_StrictPreset):
@@ -116,3 +143,8 @@ class PresetCollection(_StrictPreset):
     items: list[Preset] = Field(max_length=MAX_PRESETS)
     max_items: int = MAX_PRESETS
     max_name: int = MAX_PRESET_NAME
+
+
+def setup_file_version(items: Iterable[PresetFields]) -> int:
+    """Use the oldest format that represents the whole collection."""
+    return 2 if any(item.payload.then_refine is not None for item in items) else 1

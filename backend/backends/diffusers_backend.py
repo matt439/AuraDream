@@ -546,6 +546,26 @@ class DiffusersBackend(GenerationBackend):
             return reason
         return self._tiled_refine_owner_refusal(self._pipe)
 
+    def regional_prompts_refusal(self, selected: Any, *, check_hardware: bool = True) -> str | None:
+        from ..spatial_conditioning import REGIONAL_LOADER_REQUIRED
+
+        if self._tiled_refine_loader_refusal(selected, check_card=check_hardware) is not None:
+            return REGIONAL_LOADER_REQUIRED
+        if self._pipe is not None and self._tiled_refine_owner_refusal(self._pipe) is not None:
+            return REGIONAL_LOADER_REQUIRED
+        return None
+
+    def controlnet_qualified(self, mode: str) -> bool:
+        from ..controlnet_admission import QUALIFIED_MODES
+
+        return mode in QUALIFIED_MODES
+
+    def controlnet_owner_refusal(self) -> str | None:
+        pipe = self._pipe
+        if pipe is not None and pipe is not self._tiled_refine_candidate:
+            return "Reload the pinned Animagine XL 4.0 checkpoint before using ControlNet."
+        return None
+
     def _load_tiled_refine_candidate(self) -> None:
         """Load the pinned local candidate through the ordinary loader transaction."""
         self._require_tiled_refine_loader(check_card=False)
@@ -2029,6 +2049,8 @@ class DiffusersBackend(GenerationBackend):
         with torch.no_grad(), schedule.forced_mu(pipe, mu):
             if refining:
                 images = self._refine(pipe, runner, kwargs, generator, batch, should_cancel)
+            elif getattr(request, "spatial_conditioning", None) is not None:
+                return self._generate_spatial_image(pipe, request, kwargs, should_cancel)
             else:
                 try:
                     if disposal is None:
@@ -2208,6 +2230,30 @@ class DiffusersBackend(GenerationBackend):
                 f"{type(pipe).__name__} returned {len(images)}."
             )
         return images
+
+    def _generate_spatial_image(
+        self, pipe: Any, request: "GenerateRequest", kwargs: dict[str, Any], should_cancel: CancelFn | None,
+    ) -> list["Image"]:
+        from ..controlnet_contract import ControlNetSpec
+        from ..spatial_conditioning import RegionalPrompts
+
+        spec = request.spatial_conditioning
+        if isinstance(spec, ControlNetSpec):
+            from . import controlnet_runner
+
+            with controlnet_runner.prepared(self, pipe, request, should_cancel) as (runner, guide):
+                return list(self._invoke_pipeline(
+                    runner, {**kwargs, "image": guide, "controlnet_conditioning_scale": spec.strength},
+                ).images)
+
+        from . import regional_prompts
+
+        assert isinstance(spec, RegionalPrompts), "spatial generator validated the request"
+        reason = self.regional_prompts_refusal(current_settings(settings))
+        if reason is not None:
+            raise ValueError(reason)
+        with regional_prompts.prepared(pipe, spec, should_cancel):
+            return list(self._invoke_pipeline(pipe, kwargs).images)
 
     def _refine(
         self,

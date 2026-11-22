@@ -23,11 +23,12 @@ replace that draft until Restore is pressed. The
 Batch/Repeat and Reuse as useful targets; it does not establish a measured
 workflow speed gain.
 
-Version 1 covers ordinary text-to-image and grid composition. It does not save
-LoRAs, gallery references, Refine/Inpaint/Outpaint/instruction-edit sources or
-Then refine. Save is held when any such active input would be omitted, with
-words naming it. Restore explicitly clears current conditioning and turns
-Then refine off; its preview names these changes and Undo restores them.
+Version 1 covers ordinary text-to-image and grid composition. Version 2 also
+stores a [Generate + Then refine recipe](#saved-two-stage-recipes-gen75).
+Save is held if active LoRAs, gallery references, or other conditioning
+would be omitted. Restore clears current conditioning and sets Then refine
+from the setup. The preview shows the saved stages and Undo recovers the
+previous draft.
 There are no image, source, mask, job or run ids, completed-cell lists, Resume
 flags, queue state, estimates or results in a setup. No gallery schema, PNG
 chunk, CellKey or run identity changes are needed.
@@ -63,7 +64,7 @@ writes. Setup names and payloads are private local data, rendered as text.
 
 Do not serialize `panelState()` wholesale: its browser, per-model history,
 translation, references and performance envelope have different ownership.
-Version 1 has no loader or execution fields. It is available only with valid
+Saved setups have no loader or execution fields. Capture and Restore require valid
 Eager/native loader intent and step cache Off. Save and Restore refuse invalid
 or held performance intent before changing anything; they never clear a held
 choice, substitute a default, activate a recipe or switch/load a checkpoint.
@@ -254,6 +255,35 @@ The six documentation-map tests passed with the updated script/style and smoke
 maps. This completes the planned local storage/browser acceptance. No real
 model load, card run, fit, quality or speed measurement was performed; these
 checks establish interaction behavior against the fake.
+
+## Saved two-stage recipes (`GEN#75`)
+
+Close Grid, enable Then refine, then choose **Examples > Saved setups >
+Save current**. The draft records the selected scale and the effective
+strength, including the displayed fallback if Strength is blank. Blank pass
+Steps inherit from Generate. An explicitly entered step count stays fixed.
+Grid setups can be saved with Then refine off.
+
+Save and Restore use the ordinary Then refine bounds for the selected
+checkpoint and base request. Validation uses a cold stand-in request to
+check whether the running backend can preserve the pass. The Restore preview
+shows both stages and their image counts. Restore sets up the next ordinary
+Generate press, and Undo recovers the previous composer. Restoring a recipe
+does not change the remembered Refine scale or strength. A setup without a
+recipe restores with Then refine off.
+
+The [portable format](plan-setup-portability.md#contract) and sidecar use
+version 2 when they contain a recipe. Version 1 setups and files still read
+normally. Portable import preserves the raw recipe, including inherited
+Steps. Explicit Restore validates it against the selected checkpoint.
+
+`test_api_presets.py` covers inherited and explicit steps, an unusable
+strength/step pair and live Refine availability. `test_api_preset_portability.py`
+exercises export, import and validation with version 1 setups in the same
+library. `smoke-generation-presets` restores an older setup with Then refine
+off, checks both stages and Undo, and verifies a fake-server Generate press
+with the restored recipe. `smoke-setup-portability` exercises importing the
+new recipe, displaying its settings, then exporting and re-importing it.
 
 ## Completion evidence
 

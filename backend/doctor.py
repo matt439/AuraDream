@@ -193,23 +193,32 @@ def check_driver(which: Callable[[str], str | None] = shutil.which,
 
 # --- RAM ----------------------------------------------------------------------
 
+def windows_memory_status() -> tuple[int, int, int] | None:
+    """Windows total RAM, available RAM and available commit, in bytes."""
+    if sys.platform != "win32":
+        return None
+
+    class MemoryStatusEx(ctypes.Structure):
+        _fields_ = [
+            ("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+            ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+            ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+            ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+            ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+        ]
+
+    status = MemoryStatusEx()
+    status.dwLength = ctypes.sizeof(MemoryStatusEx)
+    if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):  # type: ignore[attr-defined]
+        return None
+    return int(status.ullTotalPhys), int(status.ullAvailPhys), int(status.ullAvailPageFile)
+
+
 def memory_status() -> tuple[int, int] | None:
     """(total, available) bytes of RAM, or None where they cannot be read."""
     if sys.platform == "win32":
-        class MemoryStatusEx(ctypes.Structure):
-            _fields_ = [
-                ("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
-                ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
-                ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
-                ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
-                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
-            ]
-
-        status = MemoryStatusEx()
-        status.dwLength = ctypes.sizeof(MemoryStatusEx)
-        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):  # type: ignore[attr-defined]
-            return None
-        return int(status.ullTotalPhys), int(status.ullAvailPhys)
+        status = windows_memory_status()
+        return (status[0], status[1]) if status is not None else None
     try:
         return parse_meminfo(Path("/proc/meminfo").read_text())
     except OSError:

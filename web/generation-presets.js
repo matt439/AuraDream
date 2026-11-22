@@ -58,8 +58,12 @@ function setupCaptureReason() {
   if (els.lora.value || pendingLora) omitted.push('LoRA');
   if (referenceIds.length) omitted.push('reference images');
   if (els.gridSection.open && els.gridLoraScale.value.trim()) omitted.push('LoRA weight axis');
-  if (els.thenRefine.checked) omitted.push('Then refine');
+  if (spatialConditioningSelected()) omitted.push('spatial conditioning');
   if (omitted.length) return `This setup cannot save ${omitted.join(', ')}. Turn them off before saving.`;
+  if (els.thenRefine.checked && els.gridSection.open) {
+    return 'Close Grid to save Generate with Then refine, or turn Then refine off to save the Grid setup.';
+  }
+  if (els.thenRefine.checked && thenRefineHeld()) return refineUnavailableReason();
   const numbers = [...panelNumberInputs(), [els.gridSeeds, 'Grid seeds'], [els.gridBudget, 'Budget']];
   const bad = numbers.find(([el]) => el.validity.badInput);
   if (bad) return `${bad[1]} has an incomplete number. Finish typing it before saving.`;
@@ -71,19 +75,22 @@ function setupCaptureReason() {
 function captureSetup() {
   const override = (key) => owned[key] && els[key].value.trim() !== '' ? +els[key].value : null;
   const nullable = (el) => el.value.trim() === '' ? null : +el.value;
+  const gridOpen = els.gridSection.open;
+  const then = gridOpen ? null : thenRefinePayload();
   return {
-    mode: els.gridSection.open ? 'grid' : 'generate',
+    mode: gridOpen ? 'grid' : 'generate',
     prompt: els.prompt.value, negative_prompt: els.negative.value,
     width: +els.width.value, height: +els.height.value,
     steps: override('steps'), guidance_scale: override('cfg'),
     mu: override('mu'), true_cfg: override('trueCfg'),
     seed: nullable(els.seed), num_images: +els.batch.value, runs: +els.runs.value,
-    grid: els.gridSection.open ? {
+    grid: gridOpen ? {
       prompt_axis: els.gridPrompt.value, prompt_mode: els.gridPromptMode.value,
       steps_axis: els.gridSteps.value, cfg_axis: els.gridCfg.value, mu_axis: els.gridMu.value,
       size_axis: els.gridSize.value, seeds: +els.gridSeeds.value,
       seed_axis: els.gridSeedList.value, budget_minutes: nullable(els.gridBudget),
     } : null,
+    ...(then ? { then_refine: then } : {}),
   };
 }
 
@@ -157,14 +164,18 @@ function renderSetups() {
   syncSetups();
 }
 
+function setupThenRefineSummary(recipe) {
+  return `Then refine · ${recipe.scale}× · Strength ${recipe.strength} · Steps ${recipe.steps ?? 'inherited from Generate'}`;
+}
+
 function setupSummary(payload, checked = null) {
   const clears = [];
   if (els.lora.value || pendingLora) clears.push('LoRA');
   if (referenceIds.length) clears.push(`${referenceIds.length} reference image(s)`);
   if (els.gridLoraScale.value) clears.push('LoRA weight axis');
-  if (els.thenRefine.checked) clears.push('Then refine');
   const lines = [`${payload.mode === 'grid' ? 'Grid' : 'Generate'} · ${payload.width} × ${payload.height}`,
-    `Restore clears conditioning and turns Then refine off${clears.length ? `: ${clears.join(', ')}.` : '.'}`,
+    payload.then_refine ? setupThenRefineSummary(payload.then_refine) : 'Then refine · Off',
+    `Restore clears ${clears.length ? clears.join(', ') : 'conditioning'}.`,
     'Undo restores the previous whole draft. Restore queues no work.',
     `Seed: ${payload.seed ?? 'random at submission'} · Batch: ${payload.num_images} · Repeat: ${payload.runs}`];
   for (const [key, label] of [['steps', 'Steps'], ['guidance_scale', 'CFG'], ['mu', 'Mu'], ['true_cfg', 'True CFG']]) {
@@ -182,7 +193,8 @@ function setupSummary(payload, checked = null) {
       mu: 'Mu', true_cfg: 'True CFG', size: 'Size', seed: 'Seeds', lora_scale: 'LoRA weight' };
     const shown = (values) => Object.entries(values).filter(([key]) => key !== 'lora_scale')
       .map(([key, entries]) => `${labels[key] ?? key}: ${entries.map((value) => value ?? 'inactive').join(' | ') || '(base seed)'}`).join('\n');
-    lines.push(`Effective: ${checked.cells} cells, ${checked.images} images.`);
+    const passes = payload.then_refine ? `, plus ${checked.images} refine passes` : '';
+    lines.push(`Effective: ${checked.cells} cells, ${checked.images} images${passes}.`);
     if (checked.inactive.length) lines.push(`Inactive in at least one cell: ${checked.inactive.map((key) => labels[key] ?? key).join(', ')}. Saved inputs are kept.`);
     if (Object.keys(checked.values).length) lines.push(`Requested grid values:\n${shown(checked.values)}\n\nEffective grid values:\n${shown(checked.effective_values)}`);
     if (checked.prompt_sample) lines.push('Random-grid prompts are examples only; no preview seed is adopted.');
@@ -415,6 +427,7 @@ function applySetup(item, checked) {
     els[field].value = payload[key] ?? lastDefaults[key] ?? '';
   }
   setReferences([]);
+  restoreSpatialConditioning(null);
   els.lora.value = '';
   pendingLora = '';
   els.loraScale.value = 1;
@@ -428,7 +441,13 @@ function applySetup(item, checked) {
   els.gridSection.open = payload.mode === 'grid';
   els.gridResume.checked = false;
   els.gridSeeds.disabled = !!els.gridSeedList.value.trim();
-  els.thenRefine.checked = false;
+  const recipe = payload.then_refine;
+  els.thenRefine.checked = !!recipe;
+  if (recipe) {
+    trScale = recipe.scale;
+    els.thenRefineStrength.value = recipe.strength;
+    els.thenRefineSteps.value = recipe.steps ?? '';
+  }
   syncSetupComposer();
   const note = { before, after: setupComposerState(), entry: null, model: loadedModel, revision: modelRevision };
   note.entry = offerPromptUndo(`Setup “${item.name}” restored.`, () => undoSetup(note), {
@@ -462,6 +481,7 @@ function undoSetup(note) {
   }
   pendingLora = state.lora && !els.lora.value ? state.lora : '';
   setReferences(state.reference);
+  restoreSpatialDraft(state.spatialConditioning);
   samplingByModel = { ...state.samplingByModel };
   Object.assign(owned, note.before.owned);
   for (const key of Object.keys(owned)) els[key].value = values[key];

@@ -67,7 +67,11 @@ class BrowseArchive:
             for key in ("vram_peak_allocated", "vram_peak_reserved"):
                 values[key] = storage._peak(values[key])
             record = storage._row_to_record(values, lookup_thumbnail=False)
-            settings = record.model_dump(mode="json", include=set(storage._COLUMNS), exclude_none=True)
+            fields: set[str] = (
+                {"imported_name", "width", "height", "content_hash", "created_at", "binned_at"}
+                if record.imported_name else set(storage._COLUMNS)
+            )
+            settings = record.model_dump(mode="json", include=fields, exclude_none=True)
             # A browser Number cannot represent the full 63-bit seed range.
             if abs(record.seed) > 2**53 - 1:
                 settings["seed"] = str(record.seed)
@@ -80,7 +84,8 @@ class BrowseArchive:
         total = 0
         page = []
         for record in self._records.values():
-            if (starred and not record["favorite"] or prompt not in record["prompt"].casefold()
+            text = record["settings"].get("imported_name") or record["prompt"]
+            if (starred and not record["favorite"] or prompt not in text.casefold()
                     or run not in (record["run_id"] or "").casefold()):
                 continue
             if offset <= total < offset + PAGE_SIZE:

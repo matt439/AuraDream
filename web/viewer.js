@@ -705,7 +705,8 @@ function viewerExamples() {
 function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLightbox(rec, list)) {
   const img = document.createElement('img');
   img.src = src;
-  img.alt = rec.prompt;
+  const subject = rec.imported_name ? `Imported image, ${rec.imported_name}` : rec.prompt;
+  img.alt = subject;
   img.loading = 'lazy';
   img.decoding = 'async';
   img.dataset.id = rec.id;
@@ -717,7 +718,7 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   // what tells it from the one beside it under the pointer (cardTitle): its
   // size, its seed and a pass's source, then the prompt. A sheet's cell is
   // named by what the sheet lays out instead (renderSheet).
-  img.setAttribute('aria-label', `Open #${rec.id}: ${rec.prompt}`);
+  img.setAttribute('aria-label', `Open #${rec.id}: ${subject}`);
   titleImage(img, rec);
   img.onclick = open;
   // A plain Enter or Space only: Ctrl+Enter is Generate's from anywhere

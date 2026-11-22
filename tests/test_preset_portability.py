@@ -76,7 +76,7 @@ def test_generate_and_grid_export_exact_raw_drafts_and_complete_payloads():
     restored = portable.parse_portable(raw)
     assert isinstance(restored, PortablePresets)
     assert [public(item) for item in restored.items] == decoded["items"]
-    assert set(decoded["items"][0]["payload"]) == set(type(originals[0].payload).model_fields)
+    assert set(decoded["items"][0]["payload"]) == set(type(originals[0].payload).model_fields) - {"then_refine"}
     assert restored.items[0].payload.prompt == originals[0].payload.prompt
     assert restored.items[0].payload.negative_prompt == originals[0].payload.negative_prompt
     assert restored.items[0].payload.seed is None and restored.items[0].payload.steps is None
@@ -97,8 +97,8 @@ def test_empty_file_is_valid_and_plan_keeps_existing_library_without_a_change():
     assert not shown.changed and not shown.can_import and shown.reason
 
 
-@pytest.mark.parametrize("version", [True, False, 1.0, "1", 0, 2, None])
-def test_version_is_exact_integer_one(version):
+@pytest.mark.parametrize("version", [True, False, 1.0, "1", 0, 3, None])
+def test_version_is_an_exact_supported_integer(version):
     raw = json.dumps({"format": PORTABLE_FORMAT, "version": version, "items": []}).encode()
     with pytest.raises(portable.PortabilityError):
         portable.parse_portable(raw)
@@ -180,7 +180,7 @@ def test_legacy_encoded_duplicate_fields_still_refuse_and_preserve_file(tmp_path
     ("id", "0" * 32), ("revision", 1), ("model_revision", 0),
     ("step_cache", None), ("execution", None), ("loader_execution", {}),
     ("reference", []), ("lora", None), ("refine", None), ("mask", None),
-    ("edit", None), ("then_refine", None), ("resume", False),
+    ("edit", None), ("then_refine", {"scale": 1.5, "strength": 0.4}), ("resume", False),
     ("job_id", "private"), ("run_id", "private"), ("path", "../private"),
 ])
 def test_forbidden_identity_conditioning_execution_and_transport_fields_are_not_stripped(level, key, value):
@@ -494,7 +494,7 @@ from backend.schemas_presets import Preset
 
 raw = {"name": "Cold", "model_id": "unknown/Exact-Checkpoint", "payload": {
     "prompt": "  untouched raw\n", "seed": None, "steps": None, "guidance_scale": 0,
-    "num_images": 2, "runs": 3,
+    "num_images": 2, "runs": 3, "then_refine": {"scale": 1.25, "strength": 0.4, "steps": None},
 }}
 local = Preset(**raw, id="a" * 32, revision=4)
 grid = {"name": "Raw grid", "model_id": "foreign/Unavailable", "payload": {
@@ -503,14 +503,16 @@ grid = {"name": "Raw grid", "model_id": "foreign/Unavailable", "payload": {
     },
 }}
 document = portable.parse_portable(json.dumps({
-    "format": PORTABLE_FORMAT, "version": 1, "items": [raw, grid],
+    "format": PORTABLE_FORMAT, "version": 2, "items": [raw, grid],
 }).encode("utf-8"))
 choices = [ImportDecision(index=0, action="replace", item_id=local.id, revision=4)]
 plan = portable.plan_merge([local], document, choices)
 assert plan.changed and plan.items[0].revision == 5 and plan.add_count == 1
 assert plan.additions[0].payload.grid.seed_axis == "44,11,22"
 assert plan.additions[0].payload.seed is None
-assert portable.parse_portable(portable.export_portable([local])).items[0].payload.prompt == raw["payload"]["prompt"]
+round_trip = portable.parse_portable(portable.export_portable([local]))
+assert round_trip.version == 2 and round_trip.items[0].payload.prompt == raw["payload"]["prompt"]
+assert round_trip.items[0].payload.then_refine.model_dump() == raw["payload"]["then_refine"]
 assert portable.collection_revision([local]) and portable.payload_digest(document)
 assert portable.preview([local], document, choices).can_import
 assert attempts == [], attempts

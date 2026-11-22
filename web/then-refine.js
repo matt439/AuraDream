@@ -95,7 +95,7 @@ function syncThenRefine() {
   // status poll reaches here, and a checkpoint that only edits held Generate
   // under the words of a live one.
   const why = submitHold({ composer: true });
-  els.generate.title = why || GENERATE_TITLE + thenRefineTitleSuffix();
+  syncGenerateButton(why);
   syncGridRun(why);
 }
 

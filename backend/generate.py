@@ -504,6 +504,7 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     source = _image_settings(args.from_image, parser) if args.from_image else None
     if source is not None:
         _apply_image_settings(args, source)
+    args.spatial_conditioning = (source or {}).get("spatial_conditioning")
     args.tiled_refine_spec = _tiled_refine_flags(args, parser, source)
     if not args.prompt:
         parser.error("a prompt is required (or --from-image with a gallery PNG)")
@@ -756,6 +757,8 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     # it with the server is the point: a cell here and a cell there must be the
     # same image.
     prompt_axis, gridding = _grid_flags(args, parser)
+    if args.spatial_conditioning is not None and gridding:
+        parser.error("--from-image spatial conditioning reproduces with direct generation only")
 
     try:
         request = p.GenerateRequest(
@@ -780,6 +783,7 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
             mask_crop=mask_crop_spec,
             detailer=args.carried_detailer,
             tiled_refine=tiled_refine,
+            spatial_conditioning=args.spatial_conditioning,
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
@@ -853,6 +857,15 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     if backend is None:
         backend = p.get_backend("diffusers")
     from . import refine_admission, refine_qualification
+
+    if request.spatial_conditioning is not None:
+        from .spatial_admission import require_available
+
+        try:
+            require_available(backend, p.settings, request, check_hardware=not args.dry_run)
+        except ValueError as exc:
+            print(p.error_detail(exc), file=sys.stderr)
+            return 2
 
     if refine_qualification.applies(p.settings.model_id):
         for cell in cells:
@@ -1096,7 +1109,10 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
         # A Mu this checkpoint cannot take is dropped by `applied()` and the
         # row records none, so the report says so rather than show it as run.
         # Asked with a Mu of its own, since the base request may carry none.
-        mu_ignored = tiled_refine is None and backend.applied(request.model_copy(update={"mu": 1.0})).mu is None
+        mu_ignored = (
+            tiled_refine is None and request.spatial_conditioning is None
+            and backend.applied(request.model_copy(update={"mu": 1.0})).mu is None
+        )
         print(
             f"sampling : {request.steps} steps, CFG {request.guidance_scale}, "
             f"mu {'-' if request.mu is None else request.mu}"
